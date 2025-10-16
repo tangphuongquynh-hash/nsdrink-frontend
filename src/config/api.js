@@ -1,6 +1,6 @@
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_BASE || "https://ns-drink-pos.onrender.com";
-const FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL || "https://nsdrink-fe1.onrender.com";
+const FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL || "https://pos.nscare.vn";
 
 export const API_ENDPOINTS = {
   base: API_BASE_URL,
