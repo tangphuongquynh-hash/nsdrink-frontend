@@ -1,32 +1,52 @@
 import { useState, useEffect } from "react";
 
+const API_BASE = "https://ns-drink-pos.onrender.com";
+
 function UserManagement() {
   const [users, setUsers] = useState([]);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
 
+  // Lấy danh sách người dùng từ backend
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("users")) || [];
-    setUsers(stored);
+    fetch(`${API_BASE}/api/users`)
+      .then(res => res.json())
+      .then(data => setUsers(data))
+      .catch(err => console.log("Fetch users error:", err));
   }, []);
 
-  const saveUsers = (newList) => {
-    localStorage.setItem("users", JSON.stringify(newList));
-    setUsers(newList);
-  };
-
+  // Thêm user mới
   const handleAdd = () => {
     if (!phone || !name) return alert("Nhập đầy đủ thông tin!");
     const newUser = { phone, name, password: "123456", role: "user" };
-    const updated = [...users, newUser];
-    saveUsers(updated);
+
+    fetch(`${API_BASE}/api/users`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newUser)
+    })
+      .then(res => {
+        if (!res.ok) throw new Error("Thêm user thất bại!");
+        return res.json();
+      })
+      .then(data => setUsers(prev => [...prev, data]))
+      .catch(err => alert(err.message));
+
     setPhone("");
     setName("");
   };
 
-  const handleDelete = (phone) => {
-    if (phone === "0932611629") return alert("Không thể xóa tài khoản Admin!");
-    saveUsers(users.filter((u) => u.phone !== phone));
+  // Xóa user
+  const handleDelete = (id, role) => {
+    if (role === "admin") return alert("Không thể xóa tài khoản Admin!");
+
+    fetch(`${API_BASE}/api/users/${id}`, { method: "DELETE" })
+      .then(res => {
+        if (!res.ok) throw new Error("Xóa thất bại!");
+        return res.json();
+      })
+      .then(() => setUsers(prev => prev.filter(u => u._id !== id)))
+      .catch(err => alert(err.message));
   };
 
   return (
@@ -66,15 +86,15 @@ function UserManagement() {
           </tr>
         </thead>
         <tbody>
-          {users.map((u, i) => (
-            <tr key={i} className="border-t hover:bg-orange-50">
+          {users.map((u) => (
+            <tr key={u._id} className="border-t hover:bg-orange-50">
               <td className="p-2">{u.name}</td>
               <td className="p-2">{u.phone}</td>
               <td className="p-2">{u.role}</td>
               <td className="p-2 text-center">
-                {u.phone !== "0932611629" && (
+                {u.role !== "admin" && (
                   <button
-                    onClick={() => handleDelete(u.phone)}
+                    onClick={() => handleDelete(u._id, u.role)}
                     className="text-red-500 font-semibold"
                   >
                     Xóa

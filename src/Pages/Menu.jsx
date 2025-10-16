@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
  * - PUT  /api/menu/:id    -> update
  * - DELETE /api/menu/:id  -> delete
  *
- * This page expects backend running at http://localhost:5001
+ * This page expects backend running at https://ns-drink-pos.onrender.com
  */
 
 export default function Menu() {
@@ -22,7 +22,7 @@ export default function Menu() {
   const [editId, setEditId] = useState(null);
   const [error, setError] = useState("");
 
-  const apiBase = "http://localhost:5001/api";
+  const apiBase = "https://ns-drink-pos.onrender.com/api";
 
   useEffect(() => {
     const cu = JSON.parse(localStorage.getItem("currentUser"));

@@ -1,11 +1,11 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import Home from "./pages/Home";
-import Login from "./pages/Login";
-import UserManagement from "./pages/UserManagement";
-import Menu from "./pages/Menu";
+import Home from "./Pages/Home";
+import Login from "./Pages/Login";
+import UserManagement from "./Pages/UserManagement";
+import Menu from "./Pages/Menu";
 import BottomNav from "./components/BottomNav";
 import ProtectedRoute from "./components/ProtectedRoute";
-import NewOrder from "./pages/NewOrder";
+import NewOrder from "./Pages/NewOrder";
 
 function App() {
   const currentUser = JSON.parse(localStorage.getItem("currentUser"));

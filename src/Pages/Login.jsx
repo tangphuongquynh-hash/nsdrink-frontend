@@ -15,7 +15,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const apiBase = "http://localhost:5000/api";
+  const apiBase = "https://ns-drink-pos.onrender.com/api";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
