@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    host: true
   },
   build: {
     rollupOptions: {
@@ -17,7 +18,13 @@ export default defineConfig({
         }
       }
     },
-    chunkSizeWarningLimit: 1000
+    chunkSizeWarningLimit: 1000,
+    target: 'esnext',
+    minify: 'esbuild'
   },
-  base: '/'
+  base: '/',
+  preview: {
+    port: 3000,
+    host: true
+  }
 });
