@@ -1,3 +1,4 @@
+// src/Pages/Bills.jsx
 import { useState, useEffect } from "react";
 
 const API_BASE = "https://nsdrink-backend.onrender.com/api";
@@ -5,17 +6,14 @@ const API_BASE = "https://nsdrink-backend.onrender.com/api";
 function Bills() {
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState("cash"); // "cash" hoặc "transfer"
+  const [paymentMethod, setPaymentMethod] = useState("cash");
 
   // Lấy tất cả orders
-  const fetchOrders = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/orders`);
-      const data = await res.json();
-      setOrders(data);
-    } catch (err) {
-      console.log("Fetch orders error:", err);
-    }
+  const fetchOrders = () => {
+    fetch(`${API_BASE}/orders`)
+      .then((res) => res.json())
+      .then((data) => setOrders(data))
+      .catch((err) => console.log("Fetch orders error:", err));
   };
 
   useEffect(() => {
@@ -33,8 +31,9 @@ function Bills() {
     setSelectedOrder({ ...selectedOrder, items: newItems });
   };
 
-  const handleComplete = async () => {
+  const handleComplete = () => {
     if (!selectedOrder) return;
+
     const updatedOrder = {
       ...selectedOrder,
       status: "Đã thanh toán",
@@ -42,24 +41,20 @@ function Bills() {
       totalAmount: selectedOrder.items.reduce((sum, i) => sum + i.quantity * i.price, 0),
     };
 
-    try {
-      const res = await fetch(`${API_BASE}/orders/${selectedOrder._id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedOrder),
-      });
-      if (!res.ok) throw new Error("Cập nhật bill thất bại!");
-      const data = await res.json();
-
-      // Cập nhật state orders
-      setOrders((prev) => prev.map((o) => (o._id === data._id ? data : o)));
-      setSelectedOrder(null);
-
-      // Bắn sự kiện để Home cập nhật doanh thu
-      window.dispatchEvent(new Event("orderUpdated"));
-    } catch (err) {
-      alert(err.message);
-    }
+    fetch(`${API_BASE}/orders/${selectedOrder._id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updatedOrder),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Cập nhật bill thất bại!");
+        return res.json();
+      })
+      .then((data) => {
+        setSelectedOrder(null);
+        fetchOrders(); // Lấy lại danh sách để cập nhật trạng thái
+      })
+      .catch((err) => alert(err.message));
   };
 
   return (
@@ -73,12 +68,12 @@ function Bills() {
             <div
               key={order._id}
               onClick={() => handleSelectOrder(order)}
-              className="p-3 border rounded-lg hover:bg-orange-50 cursor-pointer flex justify-between items-center"
+              className="p-3 border rounded-lg hover:bg-orange-50 cursor-pointer flex justify-between"
             >
               <div className="flex flex-col">
                 <span>Bàn {order.tableNumber}</span>
                 <span className="text-xs text-gray-500">
-                  Ngày: {new Date(order.createdAt).toLocaleDateString()}
+                  {new Date(order.createdAt).toLocaleString()}
                 </span>
               </div>
               <span>{order.totalAmount.toLocaleString()}₫</span>
@@ -101,9 +96,9 @@ function Bills() {
             ← Quay lại
           </button>
           <h2 className="text-lg font-semibold">Bàn {selectedOrder.tableNumber}</h2>
-          <p className="text-sm text-gray-500">
-            Ngày: {new Date(selectedOrder.createdAt).toLocaleDateString()}
-          </p>
+          <span className="text-sm text-gray-500">
+            Ngày tạo: {new Date(selectedOrder.createdAt).toLocaleString()}
+          </span>
 
           <table className="w-full border border-orange-200 text-sm">
             <thead>
@@ -171,7 +166,11 @@ function Bills() {
           </div>
 
           <div className="mt-4 font-semibold">
-            Tổng: {selectedOrder.items.reduce((sum, i) => sum + i.quantity * i.price, 0).toLocaleString()}₫
+            Tổng:{" "}
+            {selectedOrder.items
+              .reduce((sum, i) => sum + i.quantity * i.price, 0)
+              .toLocaleString()}
+            ₫
           </div>
 
           <button

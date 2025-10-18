@@ -19,53 +19,53 @@ export default function Home() {
   const [todayRevenue, setTodayRevenue] = useState({
     total: 0,
     cash: 0,
-    transfer: 0,
+    card: 0,
   });
   const [weeklyRevenue, setWeeklyRevenue] = useState([]);
-
-  const fetchRevenue = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/orders`);
-      const data = await res.json();
-
-      const today = new Date().toISOString().split("T")[0];
-      let total = 0, cash = 0, transfer = 0;
-      const weekData = [];
-
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const day = d.toISOString().split("T")[0];
-
-        const dayOrders = data.filter(o => o.date === day && o.status === "Đã thanh toán");
-        const dayTotal = dayOrders.reduce((s, o) => s + o.totalAmount, 0);
-        weekData.push({ day: day.slice(5), total: dayTotal });
-
-        if (day === today) {
-          total = dayTotal;
-          cash = dayOrders.filter(o => o.paymentMethod === "cash").reduce((s,o)=>s+o.totalAmount,0);
-          transfer = dayOrders.filter(o => o.paymentMethod === "transfer").reduce((s,o)=>s+o.totalAmount,0);
-        }
-      }
-
-      setTodayRevenue({ total, cash, transfer });
-      setWeeklyRevenue(weekData);
-    } catch (err) {
-      console.log(err);
-    }
-  };
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("currentUser"));
     setCurrentUser(user || { name: "Guest" });
 
-    fetchRevenue();
+    fetch(`${API_BASE}/orders`)
+      .then((res) => res.json())
+      .then((orders) => {
+        const today = new Date().toISOString().split("T")[0];
 
-    // Lắng nghe sự kiện cập nhật order từ trang Bills
-    const handleOrderUpdate = () => fetchRevenue();
-    window.addEventListener("orderUpdated", handleOrderUpdate);
+        let total = 0,
+          cash = 0,
+          card = 0;
+        const weekData = [];
 
-    return () => window.removeEventListener("orderUpdated", handleOrderUpdate);
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const day = d.toISOString().split("T")[0];
+
+          const dayOrders = orders.filter(
+            (o) =>
+              o.status === "Đã thanh toán" &&
+              new Date(o.createdAt).toISOString().split("T")[0] === day
+          );
+
+          const dayTotal = dayOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+          weekData.push({ day: day.slice(5), total: dayTotal }); // MM-DD
+
+          if (day === today) {
+            total = dayTotal;
+            cash = dayOrders
+              .filter((o) => o.paymentMethod === "cash")
+              .reduce((s, o) => s + o.totalAmount, 0);
+            card = dayOrders
+              .filter((o) => o.paymentMethod === "transfer")
+              .reduce((s, o) => s + o.totalAmount, 0);
+          }
+        }
+
+        setTodayRevenue({ total, cash, card });
+        setWeeklyRevenue(weekData);
+      })
+      .catch((err) => console.log("Fetch orders error:", err));
   }, []);
 
   return (
@@ -95,10 +95,12 @@ export default function Home() {
       <section className="p-4">
         <div className="bg-gradient-to-br from-orange-100 to-yellow-100 rounded-xl shadow-md p-4">
           <h2 className="text-lg font-semibold text-orange-700 mb-2">Doanh thu hôm nay</h2>
-          <p className="text-2xl font-bold text-orange-600">{todayRevenue.total.toLocaleString()} VNĐ</p>
+          <p className="text-2xl font-bold text-orange-600">
+            {todayRevenue.total.toLocaleString()} VNĐ
+          </p>
           <div className="flex justify-between mt-2 text-sm text-gray-700">
             <span>Tiền mặt: {todayRevenue.cash.toLocaleString()} VNĐ</span>
-            <span>Chuyển khoản: {todayRevenue.transfer.toLocaleString()} VNĐ</span>
+            <span>Chuyển khoản: {todayRevenue.card.toLocaleString()} VNĐ</span>
           </div>
         </div>
       </section>
@@ -128,12 +130,16 @@ export default function Home() {
           <h2 className="text-lg font-semibold text-gray-700 mb-2">Doanh thu 7 ngày gần nhất</h2>
           <div style={{ width: "100%", height: 250 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklyRevenue} layout="vertical" margin={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <BarChart
+                data={weeklyRevenue}
+                layout="vertical"
+                margin={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" />
                 <YAxis dataKey="day" type="category" />
                 <Tooltip />
-                <Bar dataKey="total" fill="#f97316" radius={[5,5,5,5]} />
+                <Bar dataKey="total" fill="#f97316" radius={[5, 5, 5, 5]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
