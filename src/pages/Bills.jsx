@@ -32,7 +32,7 @@ function Bills() {
       ...selectedOrder,
       status: "Đã thanh toán",
       paymentMethod,
-      total: selectedOrder.items.reduce((sum, i) => sum + i.quantity * i.price, 0)
+      totalAmount: selectedOrder.items.reduce((sum, i) => sum + i.quantity * i.price, 0)
     };
 
     fetch(`${API_BASE}/orders/${selectedOrder._id}`, {
@@ -64,8 +64,8 @@ function Bills() {
               onClick={() => handleSelectOrder(order)}
               className="p-3 border rounded-lg hover:bg-orange-50 cursor-pointer flex justify-between"
             >
-              <span>Bàn {order.table}</span>
-              <span>{order.items.reduce((sum, i) => sum + i.quantity * i.price, 0)}₫</span>
+              <span>Bàn {order.tableNumber}</span>
+              <span>{order.totalAmount.toLocaleString()}₫</span>
               <span className={order.status === "Đã thanh toán" ? "text-green-600" : "text-red-500"}>
                 {order.status || "Chưa thanh toán"}
               </span>
@@ -78,7 +78,7 @@ function Bills() {
       {selectedOrder && (
         <div className="space-y-4">
           <button onClick={() => setSelectedOrder(null)} className="text-blue-500">← Quay lại</button>
-          <h2 className="text-lg font-semibold">Bàn {selectedOrder.table}</h2>
+          <h2 className="text-lg font-semibold">Bàn {selectedOrder.tableNumber}</h2>
 
           <table className="w-full border border-orange-200 text-sm">
             <thead>
@@ -146,7 +146,7 @@ function Bills() {
           </div>
 
           <div className="mt-4 font-semibold">
-            Tổng: {selectedOrder.items.reduce((sum, i) => sum + i.quantity * i.price, 0)}₫
+            Tổng: {selectedOrder.items.reduce((sum, i) => sum + i.quantity * i.price, 0).toLocaleString()}₫
           </div>
 
           <button
