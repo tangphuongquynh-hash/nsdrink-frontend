@@ -15,7 +15,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const apiBase = "https://nsdrink-backend.onrender.com";
+  const apiBase = "https://nsdrink-backend.onrender.com/api";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
