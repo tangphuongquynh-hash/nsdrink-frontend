@@ -56,10 +56,23 @@ export default function Home() {
     <div className="min-h-screen pb-20 bg-gradient-to-br from-orange-50 to-yellow-50">
       {/* Header */}
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4">
-        <h1 className="text-2xl font-bold text-orange-600">NS Drink POS</h1>
-        <span className="mt-2 sm:mt-0 text-gray-700 text-sm">
-          Xin chào, {currentUser?.name || "Guest"}
-        </span>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <h1 className="text-2xl font-bold text-orange-600">NS Drink POS</h1>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-2 sm:mt-0">
+            <span className="text-gray-700 text-sm">
+              Xin chào, {currentUser?.name || "Guest"}
+            </span>
+            <button
+              onClick={() => {
+                localStorage.removeItem("currentUser");
+                window.location.href = "/login";
+              }}
+              className="text-red-500 text-sm font-semibold hover:underline"
+            >
+              Đăng xuất
+            </button>
+          </div>
+        </div>
       </header>
 
       {/* Card Doanh thu hôm nay */}
