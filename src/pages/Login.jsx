@@ -15,7 +15,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const apiBase = "https://ns-drink-pos.onrender.com/api";
+  const apiBase = "https://nsdrink-backend.onrender.com";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -87,9 +87,7 @@ export default function Login() {
           </button>
         </form>
 
-        <div className="mt-4 text-center text-sm text-gray-400">
-          Tài khoản demo Admin: <span className="font-medium text-orange-300">0932611629 / admin123</span>
-        </div>
+        
       </div>
     </div>
   );

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Minus, Trash2 } from "lucide-react";
 
-const API = import.meta.env.VITE_API_BASE || "https://ns-drink-pos.onrender.com/api";
+const API = import.meta.env.VITE_API_BASE || "https://nsdrink-backend.onrender.com"
 
 export default function NewOrder() {
   const navigate = useNavigate();

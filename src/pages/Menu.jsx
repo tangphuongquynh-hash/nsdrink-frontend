@@ -22,7 +22,7 @@ export default function Menu() {
   const [editId, setEditId] = useState(null);
   const [error, setError] = useState("");
 
-  const apiBase = "https://ns-drink-pos.onrender.com/api";
+  const apiBase = "https://nsdrink-backend.onrender.com";
 
   useEffect(() => {
     const cu = JSON.parse(localStorage.getItem("currentUser"));

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const API_BASE = "https://ns-drink-pos.onrender.com";
+const API_BASE = "https://nsdrink-backend.onrender.com";
 
 function UserManagement() {
   const [users, setUsers] = useState([]);
