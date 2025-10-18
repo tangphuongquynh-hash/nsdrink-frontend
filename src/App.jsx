@@ -6,6 +6,8 @@ import Menu from "./pages/Menu";
 import BottomNav from "./components/BottomNav";
 import ProtectedRoute from "./components/ProtectedRoute";
 import NewOrder from "./pages/NewOrder";
+import Bills from "./pages/Bills"; // <-- import trang Bills
+import Report from "./pages/Report"; // nếu có trang báo cáo
 
 function App() {
   const currentUser = JSON.parse(localStorage.getItem("currentUser"));
@@ -36,7 +38,7 @@ function App() {
           }
         />
 
-        {/* Trang Menu (chỉ admin mới vào được) */}
+        {/* Trang Menu (chỉ admin) */}
         <Route
           path="/menu"
           element={
@@ -52,6 +54,26 @@ function App() {
           element={
             <ProtectedRoute>
               <NewOrder />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Trang Bills (Đơn hàng) */}
+        <Route
+          path="/bills"
+          element={
+            <ProtectedRoute>
+              <Bills />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Trang báo cáo */}
+        <Route
+          path="/report"
+          element={
+            <ProtectedRoute>
+              <Report />
             </ProtectedRoute>
           }
         />
