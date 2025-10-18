@@ -1,4 +1,3 @@
-// ...existing code...
 import React, { useState, useEffect } from "react";
 import { API_ENDPOINTS } from "../config/api";
 
@@ -13,11 +12,10 @@ function Bills() {
       setLoading(true);
       const res = await fetch(API_ENDPOINTS.orders);
       const data = await res.json();
-      console.log("fetchOrders:", res.status, data);
       setOrders(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("fetchOrders error:", err);
-      alert("Lấy đơn hàng thất bại: " + err.message);
+      alert("Lấy đơn hàng thất bại: " + (err.message || err));
     } finally {
       setLoading(false);
     }
@@ -29,13 +27,6 @@ function Bills() {
 
   const handleSelectOrder = (order) => {
     setSelectedOrder(order);
-  };
-
-  const handleChangeItem = (index, key, value) => {
-    if (!selectedOrder) return;
-    const copy = { ...selectedOrder };
-    copy.items = copy.items.map((it, i) => (i === index ? { ...it, [key]: value } : it));
-    setSelectedOrder(copy);
   };
 
   const handleComplete = async () => {
@@ -55,15 +46,14 @@ function Bills() {
       ...selectedOrder,
       status: "Đã thanh toán",
       paymentMethod,
-      totalAmount: selectedOrder.items.reduce((s, it) => s + (it.quantity || 0) * (it.price || 0), 0),
+      totalAmount: (selectedOrder.items || []).reduce((s, it) => s + (it.quantity || 0) * (it.price || 0), 0),
     };
 
-    const base = API_ENDPOINTS.orders.replace(/\/$/, "");
-    const url = `${base}/${id}`;
-    const token = localStorage.getItem("token"); // sửa nếu bạn lưu token khác
+    const url = `${API_ENDPOINTS.orders.replace(/\/$/, "")}/${id}`;
+    const token = localStorage.getItem("token");
 
     try {
-      console.log("Attempt PUT ->", url, updatedOrder);
+      // Thử PUT trước, nếu 404 thử PATCH
       let res = await fetch(url, {
         method: "PUT",
         headers: {
@@ -73,24 +63,23 @@ function Bills() {
         body: JSON.stringify(updatedOrder),
       });
 
-      let text = await res.text();
+      const text = await res.text();
       let body;
       try { body = text ? JSON.parse(text) : null; } catch { body = text; }
-      console.log("PUT response:", res.status, body);
+      console.log("update response:", res.status, body);
 
       if (res.status === 404) {
-        console.warn("PUT 404, trying PATCH fallback");
         res = await fetch(url, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify(updatedOrder),
+          body: JSON.stringify({ status: updatedOrder.status, paymentMethod: updatedOrder.paymentMethod, totalAmount: updatedOrder.totalAmount }),
         });
-        text = await res.text();
-        try { body = text ? JSON.parse(text) : null; } catch { body = text; }
-        console.log("PATCH response:", res.status, body);
+        const t2 = await res.text();
+        try { body = t2 ? JSON.parse(t2) : null; } catch { body = t2; }
+        console.log("patch response:", res.status, body);
       }
 
       if (!res.ok) {
@@ -98,7 +87,6 @@ function Bills() {
         throw new Error(msg);
       }
 
-      // Cập nhật UI: tải lại danh sách hoặc cập nhật cục bộ
       setSelectedOrder(null);
       await fetchOrders();
       alert("Cập nhật trạng thái thành công");
@@ -111,11 +99,13 @@ function Bills() {
   return (
     <div>
       <h2>Danh sách đơn</h2>
-      {loading ? <div>Đang tải...</div> : null}
+      {loading && <div>Đang tải...</div>}
       <ul>
         {orders.map((o) => (
           <li key={o._id || o.id}>
-            <button onClick={() => handleSelectOrder(o)}>Mã: {o._id || o.id} — {o.status}</button>
+            <button onClick={() => handleSelectOrder(o)}>
+              Mã: {o._id || o.id} — {o.status}
+            </button>
           </li>
         ))}
       </ul>
@@ -123,6 +113,7 @@ function Bills() {
       {selectedOrder && (
         <div>
           <h3>Chi tiết đơn {selectedOrder._id || selectedOrder.id}</h3>
+
           <div>
             <label>
               Thanh toán:
@@ -141,4 +132,3 @@ function Bills() {
 }
 
 export default Bills;
-// ...existing code...
