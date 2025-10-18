@@ -8,11 +8,15 @@ function Bills() {
   const [paymentMethod, setPaymentMethod] = useState("cash"); // "cash" hoặc "transfer"
 
   // Lấy tất cả orders
-  useEffect(() => {
+  const fetchOrders = () => {
     fetch(`${API_BASE}/orders`)
       .then(res => res.json())
       .then(data => setOrders(data))
       .catch(err => console.log("Fetch orders error:", err));
+  };
+
+  useEffect(() => {
+    fetchOrders();
   }, []);
 
   const handleSelectOrder = (order) => {
@@ -47,6 +51,8 @@ function Bills() {
       .then(data => {
         setOrders(prev => prev.map(o => (o._id === data._id ? data : o)));
         setSelectedOrder(null);
+        // Emit event để Home lắng nghe và cập nhật
+        window.dispatchEvent(new Event("orderUpdated"));
       })
       .catch(err => alert(err.message));
   };
@@ -55,7 +61,6 @@ function Bills() {
     <div className="p-4 bg-white min-h-screen">
       <h1 className="text-xl font-bold mb-4 text-orange-600">Hóa đơn</h1>
 
-      {/* Danh sách orders */}
       {!selectedOrder && (
         <div className="space-y-2">
           {orders.map(order => (
@@ -74,7 +79,6 @@ function Bills() {
         </div>
       )}
 
-      {/* Chi tiết order */}
       {selectedOrder && (
         <div className="space-y-4">
           <button onClick={() => setSelectedOrder(null)} className="text-blue-500">← Quay lại</button>

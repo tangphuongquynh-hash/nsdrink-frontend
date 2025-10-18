@@ -12,6 +12,8 @@ import {
   CartesianGrid,
 } from "recharts";
 
+const API_BASE = "https://nsdrink-backend.onrender.com/api";
+
 export default function Home() {
   const [currentUser, setCurrentUser] = useState(null);
   const [todayRevenue, setTodayRevenue] = useState({
@@ -20,36 +22,41 @@ export default function Home() {
     card: 0,
   });
   const [weeklyRevenue, setWeeklyRevenue] = useState([]);
-  
+
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("currentUser"));
     setCurrentUser(user || { name: "Guest" });
 
-    // Load demo doanh thu từ localStorage (hoặc tạm thời test)
-    const orders = JSON.parse(localStorage.getItem("orders")) || [];
-    const today = new Date().toISOString().split("T")[0];
+    // Fetch tất cả orders hôm nay từ backend
+    fetch(`${API_BASE}/orders/today`)
+      .then(res => res.json())
+      .then(orders => {
+        const today = new Date().toISOString().split("T")[0];
+        let total = 0, cash = 0, card = 0;
+        const weekData = [];
 
-    let total = 0,
-      cash = 0,
-      card = 0;
-    const weekData = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const day = d.toISOString().split("T")[0];
+          const dayOrders = orders.filter(o => o.createdAt.startsWith(day));
+          const dayTotal = dayOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+          weekData.push({ day: day.slice(5), total: dayTotal }); // MM-DD
+          if (day === today) {
+            total = dayTotal;
+            cash = dayOrders
+              .filter(o => o.paymentMethod === "cash")
+              .reduce((s, o) => s + o.totalAmount, 0);
+            card = dayOrders
+              .filter(o => o.paymentMethod === "transfer")
+              .reduce((s, o) => s + o.totalAmount, 0);
+          }
+        }
 
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const day = d.toISOString().split("T")[0];
-      const dayOrders = orders.filter((o) => o.date === day);
-      const dayTotal = dayOrders.reduce((sum, o) => sum + o.total, 0);
-      weekData.push({ day: day.slice(5), total: dayTotal }); // MM-DD
-      if (day === today) {
-        total = dayTotal;
-        cash = dayOrders.filter((o) => o.payment === "cash").reduce((s, o) => s + o.total, 0);
-        card = dayOrders.filter((o) => o.payment === "card").reduce((s, o) => s + o.total, 0);
-      }
-    }
-
-    setTodayRevenue({ total, cash, card });
-    setWeeklyRevenue(weekData);
+        setTodayRevenue({ total, cash, card });
+        setWeeklyRevenue(weekData);
+      })
+      .catch(err => console.log("Fetch orders error:", err));
   }, []);
 
   return (
