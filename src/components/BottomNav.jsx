@@ -7,7 +7,7 @@ function BottomNav() {
 
   const navItems = [
     { path: "/", label: "Trang chủ", icon: <Home size={22} /> },
-    { path: "/orders", label: "Đơn hàng", icon: <FileText size={22} /> },
+    { path: "/bills", label: "Đơn hàng", icon: <FileText size={22} /> },
     { path: "/new-order", label: "Order", icon: <PlusCircle size={32} />, isCenter: true },
     { path: "/report", label: "Báo cáo", icon: <BarChart3 size={22} /> },
   ];
