@@ -1,30 +1,28 @@
-// src/Pages/Bills.jsx
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { API_ENDPOINTS } from "../config/api";
 
 function Bills() {
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [loading, setLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("cash"); // "cash" hoặc "transfer"
 
-  // Lấy orders
+  // Lấy tất cả orders
   const fetchOrders = async () => {
     try {
-      setLoading(true);
       const res = await fetch(API_ENDPOINTS.orders);
       const data = await res.json();
       setOrders(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("fetchOrders error:", err);
-      alert("Lấy đơn hàng thất bại: " + (err.message || err));
-    } finally {
-      setLoading(false);
+      console.log("Fetch orders error:", err);
     }
   };
 
   useEffect(() => {
     fetchOrders();
+
+    const onUpdate = () => fetchOrders();
+    window.addEventListener("orderUpdated", onUpdate);
+    return () => window.removeEventListener("orderUpdated", onUpdate);
   }, []);
 
   const handleSelectOrder = (order) => {
@@ -33,62 +31,47 @@ function Bills() {
   };
 
   const handleChangeItem = (index, key, value) => {
-    const newItems = [...selectedOrder.items];
-    newItems[index][key] = key === "quantity" || key === "price" ? Number(value) : value;
+    const newItems = [...(selectedOrder.items || [])];
+    newItems[index] = { ...newItems[index], [key]: key === "quantity" || key === "price" ? Number(value) : value };
     setSelectedOrder({ ...selectedOrder, items: newItems });
   };
 
   const handleComplete = async () => {
     if (!selectedOrder) return;
-
     const id = selectedOrder._id || selectedOrder.id;
-    const updatedOrder = {
+    if (!id) return alert("Không tìm thấy id đơn hàng");
+
+    const totalAmount = (selectedOrder.items || []).reduce((sum, i) => sum + (Number(i.quantity) || 0) * (Number(i.price) || 0), 0);
+
+    const payload = {
       ...selectedOrder,
       status: "Đã thanh toán",
       paymentMethod,
-      totalAmount: (selectedOrder.items || []).reduce(
-        (s, it) => s + (it.quantity || 0) * (it.price || 0),
-        0
-      ),
+      totalAmount,
     };
 
-    const url = `${API_ENDPOINTS.orders.replace(/\/$/, "")}/${id}`;
-    const token = localStorage.getItem("token");
-
     try {
-      let res = await fetch(url, {
+      const url = `${API_ENDPOINTS.orders.replace(/\/$/, "")}/${id}`;
+      const res = await fetch(url, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(updatedOrder),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
-      const text = await res.text();
-      let body;
-      try { body = text ? JSON.parse(text) : null; } catch { body = text; }
+      let data = null;
+      try { data = await res.json(); } catch { /* ignore */ }
 
-      if (res.status === 404) {
-        res = await fetch(url, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            status: updatedOrder.status,
-            paymentMethod: updatedOrder.paymentMethod,
-            totalAmount: updatedOrder.totalAmount,
-          }),
-        });
+      if (!res.ok) {
+        throw new Error((data && (data.message || data.error)) || `Update failed (${res.status})`);
       }
 
-      if (!res.ok) throw new Error((body && (body.message || body.error)) || `Update failed (${res.status})`);
-
+      // cập nhật state orders local
+      const updated = data && (data._id || data.id) ? data : payload;
+      setOrders((prev) => prev.map((o) => ((o._id || o.id) === (updated._id || updated.id) ? updated : o)));
       setSelectedOrder(null);
-      await fetchOrders();
-      alert("Cập nhật trạng thái thành công");
+
+      // thông báo để Home cập nhật doanh thu
+      window.dispatchEvent(new Event("orderUpdated"));
     } catch (err) {
       console.error("Update order error:", err);
       alert("Cập nhật thất bại: " + (err.message || err));
@@ -100,37 +83,39 @@ function Bills() {
       <h1 className="text-xl font-bold mb-4 text-orange-600">Hóa đơn</h1>
 
       {/* Danh sách orders */}
-      {loading ? (
-        <div>Đang tải...</div>
-      ) : !selectedOrder ? (
+      {!selectedOrder && (
         <div className="space-y-2">
           {orders.map((order) => (
             <div
               key={order._id || order.id}
               onClick={() => handleSelectOrder(order)}
-              className="p-3 border rounded-lg hover:bg-orange-50 cursor-pointer flex justify-between"
+              className="p-3 border rounded-lg hover:bg-orange-50 cursor-pointer flex justify-between items-center"
             >
               <div className="flex flex-col">
                 <span>Bàn {order.tableNumber}</span>
                 <span className="text-xs text-gray-500">
-                  {new Date(order.createdAt).toLocaleString()}
+                  Ngày: {new Date(order.createdAt || order.updatedAt || Date.now()).toLocaleDateString()}
                 </span>
               </div>
-              <span>{order.totalAmount?.toLocaleString() || 0}₫</span>
-              <span className={order.status === "Đã thanh toán" ? "text-green-600" : "text-red-500"}>
+              <span>{Number(order.totalAmount || 0).toLocaleString()}₫</span>
+              <span className={ (order.status || "").includes("Đã thanh toán") ? "text-green-600" : "text-red-500" }>
                 {order.status || "Chưa thanh toán"}
               </span>
             </div>
           ))}
         </div>
-      ) : (
-        // Chi tiết order
+      )}
+
+      {/* Chi tiết order */}
+      {selectedOrder && (
         <div className="space-y-4">
-          <button onClick={() => setSelectedOrder(null)} className="text-blue-500">← Quay lại</button>
+          <button onClick={() => setSelectedOrder(null)} className="text-blue-500">
+            ← Quay lại
+          </button>
           <h2 className="text-lg font-semibold">Bàn {selectedOrder.tableNumber}</h2>
-          <span className="text-sm text-gray-500">
-            Ngày tạo: {new Date(selectedOrder.createdAt).toLocaleString()}
-          </span>
+          <p className="text-sm text-gray-500">
+            Ngày: {new Date(selectedOrder.createdAt || selectedOrder.updatedAt || Date.now()).toLocaleDateString()}
+          </p>
 
           <table className="w-full border border-orange-200 text-sm">
             <thead>
@@ -142,7 +127,7 @@ function Bills() {
               </tr>
             </thead>
             <tbody>
-              {selectedOrder.items.map((item, idx) => (
+              {(selectedOrder.items || []).map((item, idx) => (
                 <tr key={idx} className="border-t">
                   <td className="p-2">{item.name}</td>
                   <td className="p-2">
@@ -182,21 +167,23 @@ function Bills() {
                 value="cash"
                 checked={paymentMethod === "cash"}
                 onChange={() => setPaymentMethod("cash")}
-              />{" "}Tiền mặt
+              />{" "}
+              Tiền mặt
             </label>
             <label>
               <input
                 type="radio"
                 name="payment"
-                value="card"
-                checked={paymentMethod === "card"}
-                onChange={() => setPaymentMethod("card")}
-              />{" "}Thẻ
+                value="transfer"
+                checked={paymentMethod === "transfer"}
+                onChange={() => setPaymentMethod("transfer")}
+              />{" "}
+              Chuyển khoản
             </label>
           </div>
 
           <div className="mt-4 font-semibold">
-            Tổng: {selectedOrder.items.reduce((sum, i) => sum + (i.quantity || 0) * (i.price || 0), 0).toLocaleString()}₫
+            Tổng: {(selectedOrder.items || []).reduce((sum, i) => sum + (i.quantity || 0) * (i.price || 0), 0).toLocaleString()}₫
           </div>
 
           <button
