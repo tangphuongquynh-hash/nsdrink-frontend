@@ -8,11 +8,14 @@ function Bills() {
   const [paymentMethod, setPaymentMethod] = useState("cash"); // "cash" hoặc "transfer"
 
   // Lấy tất cả orders
-  const fetchOrders = () => {
-    fetch(`${API_BASE}/orders`)
-      .then(res => res.json())
-      .then(data => setOrders(data))
-      .catch(err => console.log("Fetch orders error:", err));
+  const fetchOrders = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/orders`);
+      const data = await res.json();
+      setOrders(data);
+    } catch (err) {
+      console.log("Fetch orders error:", err);
+    }
   };
 
   useEffect(() => {
@@ -30,48 +33,60 @@ function Bills() {
     setSelectedOrder({ ...selectedOrder, items: newItems });
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (!selectedOrder) return;
     const updatedOrder = {
       ...selectedOrder,
       status: "Đã thanh toán",
       paymentMethod,
-      totalAmount: selectedOrder.items.reduce((sum, i) => sum + i.quantity * i.price, 0)
+      totalAmount: selectedOrder.items.reduce((sum, i) => sum + i.quantity * i.price, 0),
     };
 
-    fetch(`${API_BASE}/orders/${selectedOrder._id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updatedOrder)
-    })
-      .then(res => {
-        if (!res.ok) throw new Error("Cập nhật bill thất bại!");
-        return res.json();
-      })
-      .then(data => {
-        setOrders(prev => prev.map(o => (o._id === data._id ? data : o)));
-        setSelectedOrder(null);
-        // Emit event để Home lắng nghe và cập nhật
-        window.dispatchEvent(new Event("orderUpdated"));
-      })
-      .catch(err => alert(err.message));
+    try {
+      const res = await fetch(`${API_BASE}/orders/${selectedOrder._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedOrder),
+      });
+      if (!res.ok) throw new Error("Cập nhật bill thất bại!");
+      const data = await res.json();
+
+      // Cập nhật state orders
+      setOrders((prev) => prev.map((o) => (o._id === data._id ? data : o)));
+      setSelectedOrder(null);
+
+      // Bắn sự kiện để Home cập nhật doanh thu
+      window.dispatchEvent(new Event("orderUpdated"));
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   return (
     <div className="p-4 bg-white min-h-screen">
       <h1 className="text-xl font-bold mb-4 text-orange-600">Hóa đơn</h1>
 
+      {/* Danh sách orders */}
       {!selectedOrder && (
         <div className="space-y-2">
-          {orders.map(order => (
+          {orders.map((order) => (
             <div
               key={order._id}
               onClick={() => handleSelectOrder(order)}
-              className="p-3 border rounded-lg hover:bg-orange-50 cursor-pointer flex justify-between"
+              className="p-3 border rounded-lg hover:bg-orange-50 cursor-pointer flex justify-between items-center"
             >
-              <span>Bàn {order.tableNumber}</span>
+              <div className="flex flex-col">
+                <span>Bàn {order.tableNumber}</span>
+                <span className="text-xs text-gray-500">
+                  Ngày: {new Date(order.createdAt).toLocaleDateString()}
+                </span>
+              </div>
               <span>{order.totalAmount.toLocaleString()}₫</span>
-              <span className={order.status === "Đã thanh toán" ? "text-green-600" : "text-red-500"}>
+              <span
+                className={
+                  order.status === "Đã thanh toán" ? "text-green-600" : "text-red-500"
+                }
+              >
                 {order.status || "Chưa thanh toán"}
               </span>
             </div>
@@ -79,10 +94,16 @@ function Bills() {
         </div>
       )}
 
+      {/* Chi tiết order */}
       {selectedOrder && (
         <div className="space-y-4">
-          <button onClick={() => setSelectedOrder(null)} className="text-blue-500">← Quay lại</button>
+          <button onClick={() => setSelectedOrder(null)} className="text-blue-500">
+            ← Quay lại
+          </button>
           <h2 className="text-lg font-semibold">Bàn {selectedOrder.tableNumber}</h2>
+          <p className="text-sm text-gray-500">
+            Ngày: {new Date(selectedOrder.createdAt).toLocaleDateString()}
+          </p>
 
           <table className="w-full border border-orange-200 text-sm">
             <thead>

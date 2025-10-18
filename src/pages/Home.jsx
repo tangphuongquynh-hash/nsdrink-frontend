@@ -19,44 +19,53 @@ export default function Home() {
   const [todayRevenue, setTodayRevenue] = useState({
     total: 0,
     cash: 0,
-    card: 0,
+    transfer: 0,
   });
   const [weeklyRevenue, setWeeklyRevenue] = useState([]);
+
+  const fetchRevenue = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/orders`);
+      const data = await res.json();
+
+      const today = new Date().toISOString().split("T")[0];
+      let total = 0, cash = 0, transfer = 0;
+      const weekData = [];
+
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const day = d.toISOString().split("T")[0];
+
+        const dayOrders = data.filter(o => o.date === day && o.status === "Đã thanh toán");
+        const dayTotal = dayOrders.reduce((s, o) => s + o.totalAmount, 0);
+        weekData.push({ day: day.slice(5), total: dayTotal });
+
+        if (day === today) {
+          total = dayTotal;
+          cash = dayOrders.filter(o => o.paymentMethod === "cash").reduce((s,o)=>s+o.totalAmount,0);
+          transfer = dayOrders.filter(o => o.paymentMethod === "transfer").reduce((s,o)=>s+o.totalAmount,0);
+        }
+      }
+
+      setTodayRevenue({ total, cash, transfer });
+      setWeeklyRevenue(weekData);
+    } catch (err) {
+      console.log(err);
+    }
+  };
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("currentUser"));
     setCurrentUser(user || { name: "Guest" });
 
-    // Fetch tất cả orders hôm nay từ backend
-    fetch(`${API_BASE}/orders/today`)
-      .then(res => res.json())
-      .then(orders => {
-        const today = new Date().toISOString().split("T")[0];
-        let total = 0, cash = 0, card = 0;
-        const weekData = [];
+    fetchRevenue();
 
-        for (let i = 6; i >= 0; i--) {
-          const d = new Date();
-          d.setDate(d.getDate() - i);
-          const day = d.toISOString().split("T")[0];
-          const dayOrders = orders.filter(o => o.createdAt.startsWith(day));
-          const dayTotal = dayOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-          weekData.push({ day: day.slice(5), total: dayTotal }); // MM-DD
-          if (day === today) {
-            total = dayTotal;
-            cash = dayOrders
-              .filter(o => o.paymentMethod === "cash")
-              .reduce((s, o) => s + o.totalAmount, 0);
-            card = dayOrders
-              .filter(o => o.paymentMethod === "transfer")
-              .reduce((s, o) => s + o.totalAmount, 0);
-          }
-        }
+    // Lắng nghe sự kiện cập nhật order từ trang Bills
+    const handleOrderUpdate = () => fetchRevenue();
+    window.addEventListener("orderUpdated", handleOrderUpdate);
 
-        setTodayRevenue({ total, cash, card });
-        setWeeklyRevenue(weekData);
-      })
-      .catch(err => console.log("Fetch orders error:", err));
+    return () => window.removeEventListener("orderUpdated", handleOrderUpdate);
   }, []);
 
   return (
@@ -89,7 +98,7 @@ export default function Home() {
           <p className="text-2xl font-bold text-orange-600">{todayRevenue.total.toLocaleString()} VNĐ</p>
           <div className="flex justify-between mt-2 text-sm text-gray-700">
             <span>Tiền mặt: {todayRevenue.cash.toLocaleString()} VNĐ</span>
-            <span>Chuyển khoản: {todayRevenue.card.toLocaleString()} VNĐ</span>
+            <span>Chuyển khoản: {todayRevenue.transfer.toLocaleString()} VNĐ</span>
           </div>
         </div>
       </section>
