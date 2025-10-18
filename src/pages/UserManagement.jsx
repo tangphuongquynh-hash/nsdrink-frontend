@@ -9,7 +9,7 @@ function UserManagement() {
 
   // Lấy danh sách người dùng từ backend
   useEffect(() => {
-    fetch(`${API_BASE}/api/users`)
+    fetch(`${API_BASE}/users`)
       .then(res => res.json())
       .then(data => setUsers(data))
       .catch(err => console.log("Fetch users error:", err));
