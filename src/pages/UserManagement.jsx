@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const API_BASE = "https://nsdrink-backend.onrender.com/api";
+const API_BASE = "https://nsdrink-backend.onrender.com/api"; // backend API base
 
 function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -20,7 +20,7 @@ function UserManagement() {
     if (!phone || !name) return alert("Nhập đầy đủ thông tin!");
     const newUser = { phone, name, password: "123456", role: "user" };
 
-    fetch(`${API_BASE}/api/users`, {
+    fetch(`${API_BASE}/users`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newUser)
@@ -40,7 +40,7 @@ function UserManagement() {
   const handleDelete = (id, role) => {
     if (role === "admin") return alert("Không thể xóa tài khoản Admin!");
 
-    fetch(`${API_BASE}/api/users/${id}`, { method: "DELETE" })
+    fetch(`${API_BASE}/users/${id}`, { method: "DELETE" })
       .then(res => {
         if (!res.ok) throw new Error("Xóa thất bại!");
         return res.json();
