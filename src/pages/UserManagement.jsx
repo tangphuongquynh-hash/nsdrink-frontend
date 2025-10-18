@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 
-const API_BASE = "https://nsdrink-backend.onrender.com/api"; // backend API base
+const API_BASE = "https://nsdrink-backend.onrender.com/api";
 
 function UserManagement() {
   const [users, setUsers] = useState([]);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [editingId, setEditingId] = useState(null);
 
-  // Lấy danh sách người dùng từ backend
+  // Lấy danh sách user
   useEffect(() => {
     fetch(`${API_BASE}/users`)
       .then(res => res.json())
@@ -15,31 +17,60 @@ function UserManagement() {
       .catch(err => console.log("Fetch users error:", err));
   }, []);
 
-  // Thêm user mới
-  const handleAdd = () => {
-    if (!phone || !name) return alert("Nhập đầy đủ thông tin!");
-    const newUser = { phone, name, password: "123456", role: "user" };
+  // Thêm hoặc cập nhật user
+  const handleSave = () => {
+    if (!name || !phone || !password) return alert("Nhập đầy đủ thông tin!");
+    const userData = { name, phone, password, role: "user" };
 
-    fetch(`${API_BASE}/users`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newUser)
-    })
-      .then(res => {
-        if (!res.ok) throw new Error("Thêm user thất bại!");
-        return res.json();
+    if (editingId) {
+      // Cập nhật user
+      fetch(`${API_BASE}/users/${editingId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userData)
       })
-      .then(data => setUsers(prev => [...prev, data]))
-      .catch(err => alert(err.message));
-
-    setPhone("");
-    setName("");
+        .then(res => {
+          if (!res.ok) throw new Error("Cập nhật thất bại!");
+          return res.json();
+        })
+        .then(data => {
+          setUsers(prev => prev.map(u => (u._id === editingId ? data : u)));
+          resetForm();
+        })
+        .catch(err => alert(err.message));
+    } else {
+      // Thêm user mới
+      fetch(`${API_BASE}/users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userData)
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Thêm user thất bại!");
+          return res.json();
+        })
+        .then(data => setUsers(prev => [...prev, data]))
+        .catch(err => alert(err.message));
+      resetForm();
+    }
   };
 
-  // Xóa user
+  const resetForm = () => {
+    setName("");
+    setPhone("");
+    setPassword("");
+    setEditingId(null);
+  };
+
+  const handleEdit = (user) => {
+    setName(user.name);
+    setPhone(user.phone);
+    setPassword(user.password);
+    setEditingId(user._id);
+  };
+
   const handleDelete = (id, role) => {
     if (role === "admin") return alert("Không thể xóa tài khoản Admin!");
-
     fetch(`${API_BASE}/users/${id}`, { method: "DELETE" })
       .then(res => {
         if (!res.ok) throw new Error("Xóa thất bại!");
@@ -58,21 +89,28 @@ function UserManagement() {
           type="text"
           placeholder="Tên"
           value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="border border-orange-300 rounded-lg px-3 py-2 w-1/2"
+          onChange={e => setName(e.target.value)}
+          className="border border-orange-300 rounded-lg px-3 py-2 w-1/4"
         />
         <input
           type="text"
           placeholder="Số điện thoại"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className="border border-orange-300 rounded-lg px-3 py-2 w-1/2"
+          onChange={e => setPhone(e.target.value)}
+          className="border border-orange-300 rounded-lg px-3 py-2 w-1/4"
+        />
+        <input
+          type="text"
+          placeholder="Password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          className="border border-orange-300 rounded-lg px-3 py-2 w-1/4"
         />
         <button
-          onClick={handleAdd}
+          onClick={handleSave}
           className="bg-gradient-to-r from-orange-500 to-yellow-400 text-white px-4 py-2 rounded-lg font-semibold shadow"
         >
-          Thêm
+          {editingId ? "Cập nhật" : "Thêm"}
         </button>
       </div>
 
@@ -86,19 +124,27 @@ function UserManagement() {
           </tr>
         </thead>
         <tbody>
-          {users.map((u) => (
+          {users.map(u => (
             <tr key={u._id} className="border-t hover:bg-orange-50">
               <td className="p-2">{u.name}</td>
               <td className="p-2">{u.phone}</td>
               <td className="p-2">{u.role}</td>
               <td className="p-2 text-center">
                 {u.role !== "admin" && (
-                  <button
-                    onClick={() => handleDelete(u._id, u.role)}
-                    className="text-red-500 font-semibold"
-                  >
-                    Xóa
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleEdit(u)}
+                      className="text-blue-500 font-semibold mr-2"
+                    >
+                      Sửa
+                    </button>
+                    <button
+                      onClick={() => handleDelete(u._id, u.role)}
+                      className="text-red-500 font-semibold"
+                    >
+                      Xóa
+                    </button>
+                  </>
                 )}
               </td>
             </tr>
