@@ -1,4 +1,4 @@
-// src/Pages/Home.jsx
+// ...existing code...
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
@@ -11,8 +11,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-
-const API_BASE = "https://nsdrink-backend.onrender.com/api";
+import { API_ENDPOINTS } from "../config/api";
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -27,14 +26,18 @@ export default function Home() {
     const user = JSON.parse(localStorage.getItem("currentUser"));
     setCurrentUser(user || { name: "Guest" });
 
-    fetch(`${API_BASE}/orders`)
-      .then((res) => res.json())
-      .then((orders) => {
-        const today = new Date().toISOString().split("T")[0];
+    (async () => {
+      try {
+        const res = await fetch(API_ENDPOINTS.orders);
+        if (!res.ok) {
+          console.error("Fetch orders failed", res.status);
+          return;
+        }
+        const orders = await res.json();
+        const arr = Array.isArray(orders) ? orders : [];
 
-        let total = 0,
-          cash = 0,
-          card = 0;
+        const today = new Date().toISOString().split("T")[0];
+        let total = 0, cash = 0, card = 0;
         const weekData = [];
 
         for (let i = 6; i >= 0; i--) {
@@ -42,30 +45,44 @@ export default function Home() {
           d.setDate(d.getDate() - i);
           const day = d.toISOString().split("T")[0];
 
-          const dayOrders = orders.filter(
-            (o) =>
-              o.status === "Đã thanh toán" &&
-              new Date(o.createdAt).toISOString().split("T")[0] === day
-          );
+          const dayOrders = arr.filter((o) => {
+            // only count paid orders
+            const status = (o.status || "").toString();
+            if (!status) return false;
+            if (!status.includes("Đã thanh toán") && !/paid/i.test(status)) return false;
 
-          const dayTotal = dayOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+            const createdAt = o.createdAt || o.updatedAt || o.created_date || null;
+            if (!createdAt) return false;
+            const createdDay = new Date(createdAt).toISOString().split("T")[0];
+            return createdDay === day;
+          });
+
+          const dayTotal = dayOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
           weekData.push({ day: day.slice(5), total: dayTotal }); // MM-DD
 
           if (day === today) {
             total = dayTotal;
-            cash = dayOrders
-              .filter((o) => o.paymentMethod === "cash")
-              .reduce((s, o) => s + o.totalAmount, 0);
-            card = dayOrders
-              .filter((o) => o.paymentMethod === "transfer")
-              .reduce((s, o) => s + o.totalAmount, 0);
+            // normalize paymentMethod comparison
+            dayOrders.forEach((o) => {
+              const pm = (o.paymentMethod || "").toString().toLowerCase();
+              if (pm === "cash" || pm.includes("tiền") || pm.includes("cash")) {
+                cash += Number(o.totalAmount || 0);
+              } else if (pm === "card" || pm === "transfer" || pm.includes("thẻ") || pm.includes("card")) {
+                card += Number(o.totalAmount || 0);
+              } else {
+                // fallback: non-cash treated as card
+                card += Number(o.totalAmount || 0);
+              }
+            });
           }
         }
 
         setTodayRevenue({ total, cash, card });
         setWeeklyRevenue(weekData);
-      })
-      .catch((err) => console.log("Fetch orders error:", err));
+      } catch (err) {
+        console.error("Fetch orders error:", err);
+      }
+    })();
   }, []);
 
   return (
@@ -100,7 +117,7 @@ export default function Home() {
           </p>
           <div className="flex justify-between mt-2 text-sm text-gray-700">
             <span>Tiền mặt: {todayRevenue.cash.toLocaleString()} VNĐ</span>
-            <span>Chuyển khoản: {todayRevenue.card.toLocaleString()} VNĐ</span>
+            <span>Chuyển khoản/Thẻ: {todayRevenue.card.toLocaleString()} VNĐ</span>
           </div>
         </div>
       </section>

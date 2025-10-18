@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+// src/Pages/Bills.jsx
+import { useState, useEffect } from "react";
 import { API_ENDPOINTS } from "../config/api";
 
 function Bills() {
@@ -7,6 +8,7 @@ function Bills() {
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [loading, setLoading] = useState(false);
 
+  // Lấy orders
   const fetchOrders = async () => {
     try {
       setLoading(true);
@@ -27,33 +29,33 @@ function Bills() {
 
   const handleSelectOrder = (order) => {
     setSelectedOrder(order);
+    setPaymentMethod(order.paymentMethod || "cash");
+  };
+
+  const handleChangeItem = (index, key, value) => {
+    const newItems = [...selectedOrder.items];
+    newItems[index][key] = key === "quantity" || key === "price" ? Number(value) : value;
+    setSelectedOrder({ ...selectedOrder, items: newItems });
   };
 
   const handleComplete = async () => {
-    if (!selectedOrder) {
-      alert("Chưa chọn đơn hàng");
-      return;
-    }
+    if (!selectedOrder) return;
 
     const id = selectedOrder._id || selectedOrder.id;
-    if (!id) {
-      console.error("selectedOrder missing id/_id", selectedOrder);
-      alert("Không tìm thấy id đơn hàng");
-      return;
-    }
-
     const updatedOrder = {
       ...selectedOrder,
       status: "Đã thanh toán",
       paymentMethod,
-      totalAmount: (selectedOrder.items || []).reduce((s, it) => s + (it.quantity || 0) * (it.price || 0), 0),
+      totalAmount: (selectedOrder.items || []).reduce(
+        (s, it) => s + (it.quantity || 0) * (it.price || 0),
+        0
+      ),
     };
 
     const url = `${API_ENDPOINTS.orders.replace(/\/$/, "")}/${id}`;
     const token = localStorage.getItem("token");
 
     try {
-      // Thử PUT trước, nếu 404 thử PATCH
       let res = await fetch(url, {
         method: "PUT",
         headers: {
@@ -66,7 +68,6 @@ function Bills() {
       const text = await res.text();
       let body;
       try { body = text ? JSON.parse(text) : null; } catch { body = text; }
-      console.log("update response:", res.status, body);
 
       if (res.status === 404) {
         res = await fetch(url, {
@@ -75,17 +76,15 @@ function Bills() {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({ status: updatedOrder.status, paymentMethod: updatedOrder.paymentMethod, totalAmount: updatedOrder.totalAmount }),
+          body: JSON.stringify({
+            status: updatedOrder.status,
+            paymentMethod: updatedOrder.paymentMethod,
+            totalAmount: updatedOrder.totalAmount,
+          }),
         });
-        const t2 = await res.text();
-        try { body = t2 ? JSON.parse(t2) : null; } catch { body = t2; }
-        console.log("patch response:", res.status, body);
       }
 
-      if (!res.ok) {
-        const msg = (body && (body.message || body.error)) || `Update failed (${res.status})`;
-        throw new Error(msg);
-      }
+      if (!res.ok) throw new Error((body && (body.message || body.error)) || `Update failed (${res.status})`);
 
       setSelectedOrder(null);
       await fetchOrders();
@@ -97,34 +96,115 @@ function Bills() {
   };
 
   return (
-    <div>
-      <h2>Danh sách đơn</h2>
-      {loading && <div>Đang tải...</div>}
-      <ul>
-        {orders.map((o) => (
-          <li key={o._id || o.id}>
-            <button onClick={() => handleSelectOrder(o)}>
-              Mã: {o._id || o.id} — {o.status}
-            </button>
-          </li>
-        ))}
-      </ul>
+    <div className="p-4 bg-white min-h-screen">
+      <h1 className="text-xl font-bold mb-4 text-orange-600">Hóa đơn</h1>
 
-      {selectedOrder && (
-        <div>
-          <h3>Chi tiết đơn {selectedOrder._id || selectedOrder.id}</h3>
+      {/* Danh sách orders */}
+      {loading ? (
+        <div>Đang tải...</div>
+      ) : !selectedOrder ? (
+        <div className="space-y-2">
+          {orders.map((order) => (
+            <div
+              key={order._id || order.id}
+              onClick={() => handleSelectOrder(order)}
+              className="p-3 border rounded-lg hover:bg-orange-50 cursor-pointer flex justify-between"
+            >
+              <div className="flex flex-col">
+                <span>Bàn {order.tableNumber}</span>
+                <span className="text-xs text-gray-500">
+                  {new Date(order.createdAt).toLocaleString()}
+                </span>
+              </div>
+              <span>{order.totalAmount?.toLocaleString() || 0}₫</span>
+              <span className={order.status === "Đã thanh toán" ? "text-green-600" : "text-red-500"}>
+                {order.status || "Chưa thanh toán"}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        // Chi tiết order
+        <div className="space-y-4">
+          <button onClick={() => setSelectedOrder(null)} className="text-blue-500">← Quay lại</button>
+          <h2 className="text-lg font-semibold">Bàn {selectedOrder.tableNumber}</h2>
+          <span className="text-sm text-gray-500">
+            Ngày tạo: {new Date(selectedOrder.createdAt).toLocaleString()}
+          </span>
 
-          <div>
+          <table className="w-full border border-orange-200 text-sm">
+            <thead>
+              <tr className="bg-orange-100 text-orange-700">
+                <th className="p-2">Món</th>
+                <th className="p-2">Số lượng</th>
+                <th className="p-2">Giá</th>
+                <th className="p-2">Ghi chú</th>
+              </tr>
+            </thead>
+            <tbody>
+              {selectedOrder.items.map((item, idx) => (
+                <tr key={idx} className="border-t">
+                  <td className="p-2">{item.name}</td>
+                  <td className="p-2">
+                    <input
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) => handleChangeItem(idx, "quantity", e.target.value)}
+                      className="w-16 border rounded px-1"
+                    />
+                  </td>
+                  <td className="p-2">
+                    <input
+                      type="number"
+                      value={item.price}
+                      onChange={(e) => handleChangeItem(idx, "price", e.target.value)}
+                      className="w-24 border rounded px-1"
+                    />
+                  </td>
+                  <td className="p-2">
+                    <input
+                      type="text"
+                      value={item.note || ""}
+                      onChange={(e) => handleChangeItem(idx, "note", e.target.value)}
+                      className="border rounded px-1"
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="flex items-center gap-4 mt-2">
             <label>
-              Thanh toán:
-              <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-                <option value="cash">Tiền mặt</option>
-                <option value="card">Thẻ</option>
-              </select>
+              <input
+                type="radio"
+                name="payment"
+                value="cash"
+                checked={paymentMethod === "cash"}
+                onChange={() => setPaymentMethod("cash")}
+              />{" "}Tiền mặt
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="payment"
+                value="card"
+                checked={paymentMethod === "card"}
+                onChange={() => setPaymentMethod("card")}
+              />{" "}Thẻ
             </label>
           </div>
 
-          <button onClick={handleComplete}>Hoàn thành</button>
+          <div className="mt-4 font-semibold">
+            Tổng: {selectedOrder.items.reduce((sum, i) => sum + (i.quantity || 0) * (i.price || 0), 0).toLocaleString()}₫
+          </div>
+
+          <button
+            onClick={handleComplete}
+            className="bg-green-500 text-white px-4 py-2 rounded-lg mt-2"
+          >
+            Hoàn thành
+          </button>
         </div>
       )}
     </div>
