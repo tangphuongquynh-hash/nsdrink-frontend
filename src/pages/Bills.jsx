@@ -14,6 +14,10 @@ function Bills() {
     limit: 20
   });
   const [loading, setLoading] = useState(false);
+  const [menuItems, setMenuItems] = useState([]);
+  const [showAddItemModal, setShowAddItemModal] = useState(false);
+  const [selectedMenuItem, setSelectedMenuItem] = useState("");
+  const [newItemQuantity, setNewItemQuantity] = useState(1);
   
   // Lấy thông tin user hiện tại để kiểm tra quyền admin
   const currentUser = JSON.parse(localStorage.getItem("currentUser"));
@@ -41,8 +45,24 @@ function Bills() {
     }
   };
 
+  // Lấy danh sách menu items cho admin
+  const fetchMenuItems = async () => {
+    if (!isAdmin) return;
+    
+    try {
+      const res = await fetch(API_ENDPOINTS.menu);
+      const data = await res.json();
+      setMenuItems(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.log("Fetch menu items error:", err);
+    }
+  };
+
   useEffect(() => {
     fetchOrders(1);
+    if (isAdmin) {
+      fetchMenuItems();
+    }
 
     const onUpdate = () => fetchOrders(pagination.currentPage);
     window.addEventListener("orderUpdated", onUpdate);
@@ -64,6 +84,41 @@ function Bills() {
   const handleChangeItem = (index, key, value) => {
     const newItems = [...(selectedOrder.items || [])];
     newItems[index] = { ...newItems[index], [key]: key === "quantity" || key === "price" ? Number(value) : value };
+    setSelectedOrder({ ...selectedOrder, items: newItems });
+  };
+
+  // Thêm món mới vào đơn hàng (chỉ admin)
+  const handleAddItem = () => {
+    if (!isAdmin || !selectedMenuItem) return;
+    
+    const menuItem = menuItems.find(item => item._id === selectedMenuItem);
+    if (!menuItem) return;
+    
+    const newItem = {
+      name: menuItem.name,
+      price: menuItem.price,
+      quantity: newItemQuantity,
+      note: ""
+    };
+    
+    const updatedItems = [...(selectedOrder.items || []), newItem];
+    setSelectedOrder({ ...selectedOrder, items: updatedItems });
+    
+    // Reset form
+    setSelectedMenuItem("");
+    setNewItemQuantity(1);
+    setShowAddItemModal(false);
+  };
+
+  // Xóa món khỏi đơn hàng (chỉ admin)
+  const handleRemoveItem = (index) => {
+    if (!isAdmin) return;
+    
+    const confirmDelete = window.confirm("Bạn có chắc muốn xóa món này khỏi đơn hàng?");
+    if (!confirmDelete) return;
+    
+    const newItems = [...(selectedOrder.items || [])];
+    newItems.splice(index, 1);
     setSelectedOrder({ ...selectedOrder, items: newItems });
   };
 
@@ -224,6 +279,7 @@ function Bills() {
                 <th className="p-2">Số lượng</th>
                 <th className="p-2">Giá</th>
                 <th className="p-2">Ghi chú</th>
+                {isAdmin && <th className="p-2">Thao tác</th>}
               </tr>
             </thead>
             <tbody>
@@ -236,6 +292,7 @@ function Bills() {
                       value={item.quantity}
                       onChange={(e) => handleChangeItem(idx, "quantity", e.target.value)}
                       className="w-16 border rounded px-1"
+                      min="0"
                     />
                   </td>
                   <td className="p-2">
@@ -245,6 +302,7 @@ function Bills() {
                         value={item.price}
                         onChange={(e) => handleChangeItem(idx, "price", e.target.value)}
                         className="w-24 border rounded px-1"
+                        min="0"
                       />
                     ) : (
                       <span className="w-24 px-1">{Number(item.price).toLocaleString()}₫</span>
@@ -256,12 +314,36 @@ function Bills() {
                       value={item.note || ""}
                       onChange={(e) => handleChangeItem(idx, "note", e.target.value)}
                       className="border rounded px-1"
+                      placeholder="Ghi chú..."
                     />
                   </td>
+                  {isAdmin && (
+                    <td className="p-2">
+                      <button
+                        onClick={() => handleRemoveItem(idx)}
+                        className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
+                        title="Xóa món này"
+                      >
+                        🗑️ Xóa
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
+
+          {/* Add Item Button for Admin */}
+          {isAdmin && (
+            <div className="mt-4">
+              <button
+                onClick={() => setShowAddItemModal(true)}
+                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+              >
+                ➕ Thêm món
+              </button>
+            </div>
+          )}
 
           <div className="flex items-center gap-4 mt-2">
             <label>
@@ -296,6 +378,64 @@ function Bills() {
           >
             Hoàn thành
           </button>
+        </div>
+      )}
+
+      {/* Add Item Modal */}
+      {showAddItemModal && isAdmin && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Thêm món vào đơn hàng</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Chọn món:</label>
+                <select
+                  value={selectedMenuItem}
+                  onChange={(e) => setSelectedMenuItem(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Chọn món --</option>
+                  {menuItems.map((item) => (
+                    <option key={item._id || item.id} value={item._id || item.id}>
+                      {item.name} - {Number(item.price || 0).toLocaleString()}₫
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Số lượng:</label>
+                <input
+                  type="number"
+                  value={newItemQuantity}
+                  onChange={(e) => setNewItemQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  min="1"
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={handleAddItem}
+                disabled={!selectedMenuItem}
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Thêm món
+              </button>
+              <button
+                onClick={() => {
+                  setShowAddItemModal(false);
+                  setSelectedMenuItem("");
+                  setNewItemQuantity(1);
+                }}
+                className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
