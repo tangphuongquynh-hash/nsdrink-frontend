@@ -17,22 +17,68 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 function Report() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("all");
   const [orders, setOrders] = useState([]);
-  const [filteredOrders, setFilteredOrders] = useState([]);
-  const [sumAmount, setSumAmount] = useState(0);
-  const [paidAmount, setPaidAmount] = useState(0);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalOrders: 0,
+    hasNextPage: false,
+    hasPreviousPage: false,
+    limit: 20
+  });
+  const [revenue, setRevenue] = useState({
+    total: 0,
+    cash: 0,
+    transfer: 0
+  });
   const [chartData, setChartData] = useState({ labels: [], datasets: [] });
   const [loading, setLoading] = useState(false);
+  
+  // Get current user for admin check
+  const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+  const isAdmin = currentUser?.role === "admin";
 
-  // fetch tất cả orders
-  const fetchOrders = async () => {
+  // fetch completed orders with pagination and filters
+  const fetchOrders = async (page = 1) => {
+    if (!isAdmin) {
+      alert("Chỉ admin mới có thể xem báo cáo");
+      return;
+    }
+    
     setLoading(true);
     try {
-      const res = await fetch(API_ENDPOINTS.orders);
+      // Build query parameters
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '20'
+      });
+      
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      if (paymentMethod && paymentMethod !== 'all') params.append('paymentMethod', paymentMethod);
+      
+      // Add admin phone for authorization
+      if (currentUser?.phone) {
+        params.append('phone', currentUser.phone);
+      }
+      
+      const url = `${API_ENDPOINTS.orders}/completed?${params.toString()}`;
+      const res = await fetch(url);
+      
       if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
       const data = await res.json();
-      setOrders(Array.isArray(data) ? data : []);
-      filterOrders(data);
+      
+      if (data.orders && data.pagination && data.revenue) {
+        setOrders(data.orders);
+        setPagination(data.pagination);
+        setRevenue(data.revenue);
+        generateChartData(data.orders);
+      } else {
+        // Fallback for old API format
+        setOrders(Array.isArray(data) ? data : []);
+        generateChartData(Array.isArray(data) ? data : []);
+      }
     } catch (err) {
       console.error("Fetch orders error:", err);
       alert("Lỗi khi tải dữ liệu: " + err.message);
@@ -41,38 +87,10 @@ function Report() {
     }
   };
 
-  // filter orders theo khoảng thời gian
-  const filterOrders = (allOrders = orders) => {
-    let filtered = allOrders;
-
-    if (startDate || endDate) {
-      filtered = allOrders.filter((order) => {
-        const orderDate = new Date(order.createdAt || order.updatedAt || Date.now());
-        const orderDateStr = orderDate.toISOString().split("T")[0];
-
-        if (startDate && orderDateStr < startDate) return false;
-        if (endDate && orderDateStr > endDate) return false;
-        return true;
-      });
-    }
-
-    setFilteredOrders(filtered);
-
-    // tính tổng tiền (tất cả đơn)
-    const totalSum = filtered.reduce((s, o) => s + Number(o.totalAmount || 0), 0);
-    setSumAmount(totalSum);
-
-    // tính tổng tiền đã thanh toán
-    const paidOrders = filtered.filter((o) => {
-      const status = (o.status || "").toString();
-      return status.includes("Đã thanh toán") || /paid/i.test(status);
-    });
-    const paidSum = paidOrders.reduce((s, o) => s + Number(o.totalAmount || 0), 0);
-    setPaidAmount(paidSum);
-
-    // tính món order nhiều nhất
+  // Generate chart data from orders
+  const generateChartData = (ordersList) => {
     const itemCount = {};
-    filtered.forEach((order) => {
+    ordersList.forEach((order) => {
       (order.items || []).forEach((item) => {
         const name = item.name || "Unknown";
         itemCount[name] = (itemCount[name] || 0) + Number(item.quantity || 0);
@@ -95,19 +113,28 @@ function Report() {
       ],
     });
   };
+  
+  // Handle page change
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      fetchOrders(newPage);
+    }
+  };
 
   useEffect(() => {
-    fetchOrders();
+    if (isAdmin) {
+      fetchOrders(1);
+    }
   }, []);
 
   const handleFilter = () => {
-    filterOrders();
+    fetchOrders(1); // Reset to first page when filtering
   };
 
   // download CSV
   const downloadCSV = () => {
     let csv = "OrderNumber,TableNumber,DateTime,User,Items,TotalAmount,Status,PaymentMethod\n";
-    filteredOrders.forEach((o) => {
+    orders.forEach((o) => {
       const itemsStr = (o.items || [])
         .map((i) => `${i.name || ""}(${i.quantity || 0})`)
         .join(" | ");
@@ -123,6 +150,18 @@ function Report() {
     link.download = `report_${startDate || "all"}_${endDate || "all"}.csv`;
     link.click();
   };
+  
+  // Return early if not admin
+  if (!isAdmin) {
+    return (
+      <div className="p-4 bg-white min-h-screen">
+        <h1 className="text-xl font-bold mb-4 text-orange-600">Báo cáo chi tiết</h1>
+        <div className="text-center py-8 text-red-500">
+          Chỉ admin mới có thể xem báo cáo
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 bg-white min-h-screen">
@@ -149,6 +188,18 @@ function Report() {
               className="border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-orange-300"
             />
           </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">Phương thức thanh toán</label>
+            <select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              className="border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-orange-300"
+            >
+              <option value="all">Tất cả</option>
+              <option value="cash">Tiền mặt</option>
+              <option value="transfer">Chuyển khoản</option>
+            </select>
+          </div>
           <button
             onClick={handleFilter}
             disabled={loading}
@@ -158,7 +209,7 @@ function Report() {
           </button>
           <button
             onClick={downloadCSV}
-            disabled={loading || filteredOrders.length === 0}
+            disabled={loading || orders.length === 0}
             className="bg-green-500 text-white px-4 py-2 rounded shadow hover:bg-green-600 disabled:opacity-50"
           >
             Tải CSV
@@ -167,18 +218,32 @@ function Report() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
           <div className="text-sm text-blue-600 font-medium">Tổng đơn hàng</div>
-          <div className="text-2xl font-bold text-blue-700">{filteredOrders.length}</div>
-        </div>
-        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-          <div className="text-sm text-yellow-600 font-medium">Tổng tiền (tất cả)</div>
-          <div className="text-2xl font-bold text-yellow-700">{sumAmount.toLocaleString()} VNĐ</div>
+          <div className="text-2xl font-bold text-blue-700">{pagination.totalOrders}</div>
+          <div className="text-xs text-blue-500 mt-1">
+            Trang {pagination.currentPage}/{pagination.totalPages}
+          </div>
         </div>
         <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-          <div className="text-sm text-green-600 font-medium">Tổng tiền đã thanh toán</div>
-          <div className="text-2xl font-bold text-green-700">{paidAmount.toLocaleString()} VNĐ</div>
+          <div className="text-sm text-green-600 font-medium">Tổng doanh thu</div>
+          <div className="text-2xl font-bold text-green-700">{revenue.total.toLocaleString()} VNĐ</div>
+          <div className="text-xs text-green-500 mt-1">Đã thanh toán</div>
+        </div>
+        <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+          <div className="text-sm text-purple-600 font-medium">Tiền mặt</div>
+          <div className="text-2xl font-bold text-purple-700">{revenue.cash.toLocaleString()} VNĐ</div>
+          <div className="text-xs text-purple-500 mt-1">
+            {revenue.total > 0 ? Math.round((revenue.cash / revenue.total) * 100) : 0}% tổng doanh thu
+          </div>
+        </div>
+        <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+          <div className="text-sm text-indigo-600 font-medium">Chuyển khoản</div>
+          <div className="text-2xl font-bold text-indigo-700">{revenue.transfer.toLocaleString()} VNĐ</div>
+          <div className="text-xs text-indigo-500 mt-1">
+            {revenue.total > 0 ? Math.round((revenue.transfer / revenue.total) * 100) : 0}% tổng doanh thu
+          </div>
         </div>
       </div>
 
@@ -198,50 +263,116 @@ function Report() {
               </tr>
             </thead>
             <tbody>
-              {filteredOrders.map((o, idx) => (
-                <tr key={o._id || idx} className="border-b hover:bg-orange-25 transition-colors">
-                  <td className="p-3">{o.orderNumber || "-"}</td>
-                  <td className="p-3">{o.tableNumber || "-"}</td>
-                  <td className="p-3">
-                    {new Date(o.createdAt || o.updatedAt || Date.now()).toLocaleString("vi-VN")}
-                  </td>
-                  <td className="p-3">
-                    {o.createdBy?.name || o.user || o.userName || "-"}
-                  </td>
-                  <td className="p-3">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        (o.status || "").includes("Đã thanh toán")
-                          ? "bg-green-100 text-green-700"
-                          : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {o.status || "Chưa xác định"}
-                    </span>
-                  </td>
-                  <td className="p-3">
-                    <div className="max-w-xs">
-                      {(o.items || []).map((i, itemIdx) => (
-                        <div key={itemIdx} className="text-xs mb-1">
-                          <span className="font-medium">{i.name || "Unknown"}</span>
-                          <span className="text-gray-500"> x{i.quantity || 0}</span>
-                          <span className="text-gray-600"> ({Number(i.price || 0).toLocaleString()}₫)</span>
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="p-3 text-right font-medium">
-                    {Number(o.totalAmount || 0).toLocaleString()} VNĐ
+              {loading ? (
+                <tr>
+                  <td colSpan="7" className="p-8 text-center text-gray-500">
+                    Đang tải dữ liệu...
                   </td>
                 </tr>
-              ))}
+              ) : orders.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="p-8 text-center text-gray-500">
+                    Không có đơn hàng nào trong khoảng thời gian này
+                  </td>
+                </tr>
+              ) : (
+                orders.map((o, idx) => (
+                  <tr key={o._id || idx} className="border-b hover:bg-orange-25 transition-colors">
+                    <td className="p-3">{o.orderNumber || "-"}</td>
+                    <td className="p-3">{o.tableNumber || "-"}</td>
+                    <td className="p-3">
+                      {new Date(o.createdAt || o.updatedAt || Date.now()).toLocaleString("vi-VN")}
+                    </td>
+                    <td className="p-3">
+                      {o.createdBy?.name || o.user || o.userName || "-"}
+                    </td>
+                    <td className="p-3">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          (o.status || "").includes("Đã thanh toán")
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {o.status || "Chưa xác định"}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <div className="max-w-xs">
+                        {(o.items || []).map((i, itemIdx) => (
+                          <div key={itemIdx} className="text-xs mb-1">
+                            <span className="font-medium">{i.name || "Unknown"}</span>
+                            <span className="text-gray-500"> x{i.quantity || 0}</span>
+                            <span className="text-gray-600"> ({Number(i.price || 0).toLocaleString()}₫)</span>
+                            {i.note && <span className="text-gray-400 italic"> - {i.note}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="p-3 text-right font-medium">
+                      <div>{Number(o.totalAmount || 0).toLocaleString()} VNĐ</div>
+                      {o.paymentMethod && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          {o.paymentMethod === 'cash' ? '💵 Tiền mặt' : 
+                           o.paymentMethod === 'transfer' ? '💳 Chuyển khoản' : 
+                           o.paymentMethod}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
         
-        {filteredOrders.length === 0 && !loading && (
-          <div className="p-8 text-center text-gray-500">
-            Không có đơn hàng nào trong khoảng thời gian này
+        {/* Pagination Controls */}
+        {!loading && orders.length > 0 && pagination.totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 mt-4 py-4">
+            <button
+              onClick={() => handlePageChange(pagination.currentPage - 1)}
+              disabled={!pagination.hasPreviousPage}
+              className="px-3 py-1 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-orange-50"
+            >
+              ← Trước
+            </button>
+            
+            <div className="flex gap-1">
+              {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                let pageNum;
+                if (pagination.totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (pagination.currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (pagination.currentPage >= pagination.totalPages - 2) {
+                  pageNum = pagination.totalPages - 4 + i;
+                } else {
+                  pageNum = pagination.currentPage - 2 + i;
+                }
+                
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => handlePageChange(pageNum)}
+                    className={`px-3 py-1 border rounded ${
+                      pageNum === pagination.currentPage
+                        ? "bg-orange-500 text-white"
+                        : "hover:bg-orange-50"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+            
+            <button
+              onClick={() => handlePageChange(pagination.currentPage + 1)}
+              disabled={!pagination.hasNextPage}
+              className="px-3 py-1 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-orange-50"
+            >
+              Sau →
+            </button>
           </div>
         )}
       </div>
