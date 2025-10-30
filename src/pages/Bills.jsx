@@ -5,6 +5,10 @@ function Bills() {
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("cash"); // "cash" hoặc "transfer"
+  
+  // Lấy thông tin user hiện tại để kiểm tra quyền admin
+  const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+  const isAdmin = currentUser?.role === "admin";
 
   // Lấy tất cả orders
   const fetchOrders = async () => {
@@ -139,12 +143,16 @@ function Bills() {
                     />
                   </td>
                   <td className="p-2">
-                    <input
-                      type="number"
-                      value={item.price}
-                      onChange={(e) => handleChangeItem(idx, "price", e.target.value)}
-                      className="w-24 border rounded px-1"
-                    />
+                    {isAdmin ? (
+                      <input
+                        type="number"
+                        value={item.price}
+                        onChange={(e) => handleChangeItem(idx, "price", e.target.value)}
+                        className="w-24 border rounded px-1"
+                      />
+                    ) : (
+                      <span className="w-24 px-1">{Number(item.price).toLocaleString()}₫</span>
+                    )}
                   </td>
                   <td className="p-2">
                     <input

@@ -9,11 +9,11 @@ function BottomNav() {
     { path: "/", label: "Trang chủ", icon: <Home size={22} /> },
     { path: "/bills", label: "Đơn hàng", icon: <FileText size={22} /> },
     { path: "/new-order", label: "Order", icon: <PlusCircle size={32} />, isCenter: true },
-    { path: "/report", label: "Báo cáo", icon: <BarChart3 size={22} /> },
   ];
 
-  // Nếu là admin thì thêm mục User
+  // Chỉ admin mới thấy Report và User management
   if (currentUser?.role === "admin") {
+    navItems.push({ path: "/report", label: "Báo cáo", icon: <BarChart3 size={22} /> });
     navItems.push({ path: "/users", label: "User", icon: <User size={22} /> });
   }
 
