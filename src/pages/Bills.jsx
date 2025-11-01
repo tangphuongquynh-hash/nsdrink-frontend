@@ -468,22 +468,27 @@ function Bills() {
           </div>
 
           {/* Total Calculation Display */}
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-gray-600">Tạm tính:</span>
-              <span className="text-sm font-medium">{totals.subtotal.toLocaleString('vi-VN')}đ</span>
-            </div>
-            {discount > 0 && (
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-red-600">Giảm giá ({discount}%):</span>
-                <span className="text-sm font-medium text-red-600">-{totals.discountAmount.toLocaleString('vi-VN')}đ</span>
+          {(() => {
+            const totals = calculateTotals(selectedOrder.items, discount);
+            return (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-gray-600">Tạm tính:</span>
+                  <span className="text-sm font-medium">{totals.subtotal.toLocaleString('vi-VN')}đ</span>
+                </div>
+                {discount > 0 && (
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-red-600">Giảm giá ({discount}%):</span>
+                    <span className="text-sm font-medium text-red-600">-{totals.discountAmount.toLocaleString('vi-VN')}đ</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center pt-2 border-t border-blue-200">
+                  <span className="text-base font-semibold text-blue-700">Tổng cộng:</span>
+                  <span className="text-lg font-bold text-blue-700">{totals.total.toLocaleString('vi-VN')}đ</span>
+                </div>
               </div>
-            )}
-            <div className="flex justify-between items-center pt-2 border-t border-blue-200">
-              <span className="text-base font-semibold text-blue-700">Tổng cộng:</span>
-              <span className="text-lg font-bold text-blue-700">{totals.finalTotal.toLocaleString('vi-VN')}đ</span>
-            </div>
-          </div>
+            );
+          })()}
 
           <div className="mt-4 font-semibold">
             Tổng: {(selectedOrder.items || []).reduce((sum, i) => sum + (i.quantity || 0) * (i.price || 0), 0).toLocaleString()}₫
