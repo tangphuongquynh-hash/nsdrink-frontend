@@ -68,7 +68,9 @@ export default function Menu() {
     if (!confirm("Xác nhận xóa món này?")) return;
     try {
       setSaving(true);
-      const res = await fetch(`${apiBase}/menu/${id}`, {
+      // Add admin phone to query for authorization
+      const adminPhone = currentUser?.phone ? `?phone=${encodeURIComponent(currentUser.phone)}` : '';
+      const res = await fetch(`${apiBase}/menu/${id}${adminPhone}`, {
         method: "DELETE",
       });
       if (!res.ok) {
@@ -94,9 +96,12 @@ export default function Menu() {
 
     setSaving(true);
     try {
+      // Add admin phone to query for authorization
+      const adminPhone = currentUser?.phone ? `?phone=${encodeURIComponent(currentUser.phone)}` : '';
+      
       if (editId) {
         // update
-        const res = await fetch(`${apiBase}/menu/${editId}`, {
+        const res = await fetch(`${apiBase}/menu/${editId}${adminPhone}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: name.trim(), price: p }),
@@ -110,7 +115,7 @@ export default function Menu() {
         }
       } else {
         // create
-        const res = await fetch(`${apiBase}/menu`, {
+        const res = await fetch(`${apiBase}/menu${adminPhone}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: name.trim(), price: p }),
