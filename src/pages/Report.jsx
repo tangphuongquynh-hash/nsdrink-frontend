@@ -69,6 +69,30 @@ function Report() {
     }
   };
 
+  // Fetch revenue summary
+  const fetchRevenue = async () => {
+    if (!isAdmin) return;
+    
+    try {
+      const params = new URLSearchParams();
+      if (currentUser?.phone) {
+        params.append('phone', currentUser.phone);
+      }
+      
+      const url = `${API_ENDPOINTS.orders}/completed?${params.toString()}`;
+      const res = await fetch(url);
+      
+      if (!res.ok) throw new Error(`Revenue fetch failed: ${res.status}`);
+      const data = await res.json();
+      
+      if (data.revenue) {
+        setRevenue(data.revenue);
+      }
+    } catch (err) {
+      console.error("Fetch revenue error:", err);
+    }
+  };
+
   // Handle select order for detailed view
   const handleSelectOrder = (order) => {
     setSelectedOrder(order);
@@ -148,8 +172,9 @@ function Report() {
 
       alert("Đã lưu thay đổi!");
       
-      // Refresh the order list
+      // Refresh the order list and revenue
       fetchOrders(pagination.currentPage);
+      fetchRevenue();
       
       // Update selected order with new data
       if (data) {
@@ -201,6 +226,7 @@ function Report() {
       alert("Đã hoàn thành đơn hàng!");
       setSelectedOrder(null); // Go back to list
       fetchOrders(pagination.currentPage); // Refresh list
+      fetchRevenue(); // Refresh revenue
     } catch (err) {
       console.error("Complete order error:", err);
       alert("Lỗi khi hoàn thành đơn hàng: " + err.message);
@@ -217,6 +243,7 @@ function Report() {
   useEffect(() => {
     if (isAdmin) {
       fetchOrders(1);
+      fetchRevenue();
     }
   }, []);
   
@@ -248,6 +275,37 @@ function Report() {
         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
           <div className="text-sm text-yellow-700">
             <strong>📋 Hiển thị:</strong> Các đơn hàng có áp dụng giảm giá hoặc có ghi chú đặc biệt
+          </div>
+        </div>
+      )}
+
+      {/* Revenue Summary Cards */}
+      {!selectedOrder && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+            <div className="text-sm text-green-600 font-medium">Tổng doanh thu</div>
+            <div className="text-2xl font-bold text-green-700">
+              {revenue.total.toLocaleString()}₫
+            </div>
+            <div className="text-xs text-green-500 mt-1">Tất cả phương thức</div>
+          </div>
+          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+            <div className="text-sm text-yellow-600 font-medium">Tiền mặt</div>
+            <div className="text-2xl font-bold text-yellow-700">
+              {revenue.cash.toLocaleString()}₫
+            </div>
+            <div className="text-xs text-yellow-500 mt-1">
+              {revenue.total > 0 ? Math.round((revenue.cash / revenue.total) * 100) : 0}% tổng doanh thu
+            </div>
+          </div>
+          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+            <div className="text-sm text-purple-600 font-medium">Chuyển khoản</div>
+            <div className="text-2xl font-bold text-purple-700">
+              {revenue.transfer.toLocaleString()}₫
+            </div>
+            <div className="text-xs text-purple-500 mt-1">
+              {revenue.total > 0 ? Math.round((revenue.transfer / revenue.total) * 100) : 0}% tổng doanh thu
+            </div>
           </div>
         </div>
       )}
