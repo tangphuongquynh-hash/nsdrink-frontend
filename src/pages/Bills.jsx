@@ -247,6 +247,15 @@ function Bills() {
           </div>
         )}
       </div>
+      
+      {/* Thông báo logic hiển thị */}
+      {!selectedOrder && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="text-sm text-blue-700">
+            <strong>📋 Hiển thị:</strong> Tất cả đơn hàng hôm nay + Đơn hàng chưa hoàn thành các ngày trước
+          </div>
+        </div>
+      )}
 
       {/* Danh sách orders */}
       {!selectedOrder && (
