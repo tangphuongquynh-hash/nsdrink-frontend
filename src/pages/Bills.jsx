@@ -87,6 +87,11 @@ function Bills() {
     setSelectedOrder({ ...selectedOrder, items: newItems });
   };
 
+  // Handle table number change
+  const handleTableNumberChange = (value) => {
+    setSelectedOrder({ ...selectedOrder, tableNumber: value });
+  };
+
   // Thêm món mới vào đơn hàng (chỉ admin)
   const handleAddItem = () => {
     if (!isAdmin || !selectedMenuItem) return;
@@ -136,8 +141,8 @@ function Bills() {
       totalAmount,
     };
 
-    // Thêm thông tin admin nếu cần thiết cho middleware
-    if (isAdmin && currentUser?.phone) {
+    // Thêm thông tin user (cả admin và user thường) cho middleware
+    if (currentUser?.phone) {
       payload.phone = currentUser.phone;
     }
 
@@ -267,7 +272,18 @@ function Bills() {
           <button onClick={() => setSelectedOrder(null)} className="text-blue-500">
             ← Quay lại
           </button>
-          <h2 className="text-lg font-semibold">Bàn {selectedOrder.tableNumber}</h2>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-semibold">Bàn</span>
+            <input
+              type="text"
+              value={selectedOrder.tableNumber || ""}
+              onChange={(e) => handleTableNumberChange(e.target.value)}
+              className="border border-gray-300 rounded px-2 py-1 w-20 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-orange-300"
+              placeholder="Số bàn"
+            />
+          </div>
+          
           <p className="text-sm text-gray-500">
             Ngày: {new Date(selectedOrder.createdAt || selectedOrder.updatedAt || Date.now()).toLocaleDateString()}
           </p>

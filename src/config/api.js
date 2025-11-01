@@ -6,6 +6,7 @@ export const API_ENDPOINTS = {
   users: `${API_BASE_URL}/api/users`,
   menu: `${API_BASE_URL}/api/menu`,
   orders: `${API_BASE_URL}/api/orders`,
+  ordersAll: `${API_BASE_URL}/api/orders/all`, // For Home page revenue calculation
   login: `${API_BASE_URL}/api/login`,
 };
 

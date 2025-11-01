@@ -58,7 +58,7 @@ export default function Home() {
 
   const fetchOrdersAndCompute = async () => {
     try {
-      const res = await fetch(API_ENDPOINTS.orders);
+      const res = await fetch(API_ENDPOINTS.ordersAll);
       if (!res.ok) {
         console.error("Fetch orders failed", res.status);
         return;
