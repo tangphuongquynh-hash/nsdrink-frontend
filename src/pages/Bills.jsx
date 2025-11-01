@@ -18,6 +18,7 @@ function Bills() {
   const [showAddItemModal, setShowAddItemModal] = useState(false);
   const [selectedMenuItem, setSelectedMenuItem] = useState("");
   const [newItemQuantity, setNewItemQuantity] = useState(1);
+  const [discount, setDiscount] = useState(0); // Discount percentage (0, 5, 10, 15, 20)
   
   // Lấy thông tin user hiện tại để kiểm tra quyền admin
   const currentUser = JSON.parse(localStorage.getItem("currentUser"));
@@ -79,6 +80,7 @@ function Bills() {
   const handleSelectOrder = (order) => {
     setSelectedOrder(order);
     setPaymentMethod(order.paymentMethod || "cash");
+    setDiscount(order.discount || 0);
   };
 
   const handleChangeItem = (index, key, value) => {
@@ -90,6 +92,19 @@ function Bills() {
   // Handle table number change
   const handleTableNumberChange = (value) => {
     setSelectedOrder({ ...selectedOrder, tableNumber: value });
+  };
+
+  // Calculate totals with discount
+  const calculateTotals = (items, discountPercentage = 0) => {
+    const subtotal = (items || []).reduce((sum, i) => sum + (i.quantity || 0) * (i.price || 0), 0);
+    const discountAmount = subtotal * (discountPercentage / 100);
+    const total = subtotal - discountAmount;
+    return { subtotal, discountAmount, total };
+  };
+
+  // Handle discount change
+  const handleDiscountChange = (discountPercentage) => {
+    setDiscount(discountPercentage);
   };
 
   // Thêm món mới vào đơn hàng (chỉ admin)
@@ -127,18 +142,66 @@ function Bills() {
     setSelectedOrder({ ...selectedOrder, items: newItems });
   };
 
+  // Save changes without completing order
+  const handleSaveChanges = async () => {
+    if (!selectedOrder) return;
+    const id = selectedOrder._id || selectedOrder.id;
+    if (!id) return alert("Không tìm thấy id đơn hàng");
+
+    const { subtotal, total } = calculateTotals(selectedOrder.items, discount);
+
+    const payload = {
+      ...selectedOrder,
+      totalAmount: total,
+      discount: discount,
+      items: selectedOrder.items,
+      tableNumber: selectedOrder.tableNumber
+    };
+
+    // Thêm thông tin user cho middleware
+    if (currentUser?.phone) {
+      payload.phone = currentUser.phone;
+    }
+
+    try {
+      const url = `${API_ENDPOINTS.orders.replace(/\/$/, "")}/${id}`;
+      const res = await fetch(url, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      let data = null;
+      try { data = await res.json(); } catch { /* ignore */ }
+
+      if (!res.ok) {
+        throw new Error((data && (data.message || data.error)) || `Save failed (${res.status})`);
+      }
+
+      // Update local state
+      const updated = data && (data._id || data.id) ? data : payload;
+      setOrders((prev) => prev.map((o) => ((o._id || o.id) === (updated._id || updated.id) ? updated : o)));
+      
+      alert("Lưu thay đổi thành công!");
+    } catch (err) {
+      console.error("Save changes error:", err);
+      alert("Lưu thất bại: " + (err.message || err));
+    }
+  };
+
   const handleComplete = async () => {
     if (!selectedOrder) return;
     const id = selectedOrder._id || selectedOrder.id;
     if (!id) return alert("Không tìm thấy id đơn hàng");
 
-    const totalAmount = (selectedOrder.items || []).reduce((sum, i) => sum + (Number(i.quantity) || 0) * (Number(i.price) || 0), 0);
+    const { total } = calculateTotals(selectedOrder.items, discount);
 
     const payload = {
       ...selectedOrder,
       status: "Đã thanh toán",
       paymentMethod,
-      totalAmount,
+      totalAmount: total,
+      discount: discount,
     };
 
     // Thêm thông tin user (cả admin và user thường) cho middleware
@@ -384,16 +447,62 @@ function Bills() {
             </label>
           </div>
 
+          {/* Discount Section */}
+          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <h3 className="text-sm font-semibold text-yellow-700 mb-2">Giảm giá</h3>
+            <div className="flex flex-wrap gap-2">
+              {[0, 5, 10, 15, 20].map((percentage) => (
+                <button
+                  key={percentage}
+                  onClick={() => handleDiscountChange(percentage)}
+                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                    discount === percentage
+                      ? "bg-yellow-500 text-white"
+                      : "bg-white border border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+                  }`}
+                >
+                  {percentage === 0 ? "Không giảm" : `${percentage}%`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Total Calculation Display */}
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-600">Tạm tính:</span>
+              <span className="text-sm font-medium">{totals.subtotal.toLocaleString('vi-VN')}đ</span>
+            </div>
+            {discount > 0 && (
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-red-600">Giảm giá ({discount}%):</span>
+                <span className="text-sm font-medium text-red-600">-{totals.discountAmount.toLocaleString('vi-VN')}đ</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center pt-2 border-t border-blue-200">
+              <span className="text-base font-semibold text-blue-700">Tổng cộng:</span>
+              <span className="text-lg font-bold text-blue-700">{totals.finalTotal.toLocaleString('vi-VN')}đ</span>
+            </div>
+          </div>
+
           <div className="mt-4 font-semibold">
             Tổng: {(selectedOrder.items || []).reduce((sum, i) => sum + (i.quantity || 0) * (i.price || 0), 0).toLocaleString()}₫
           </div>
 
-          <button
-            onClick={handleComplete}
-            className="bg-green-500 text-white px-4 py-2 rounded-lg mt-2"
-          >
-            Hoàn thành
-          </button>
+          <div className="flex flex-col gap-2 mt-2">
+            <button
+              onClick={handleSaveChanges}
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              Lưu thay đổi
+            </button>
+            <button
+              onClick={handleComplete}
+              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
+            >
+              Hoàn thành
+            </button>
+          </div>
         </div>
       )}
 
