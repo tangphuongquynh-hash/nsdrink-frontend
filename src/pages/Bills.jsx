@@ -20,15 +20,29 @@ function Bills() {
   const [newItemQuantity, setNewItemQuantity] = useState(1);
   const [discount, setDiscount] = useState(0); // Discount percentage (0, 5, 10, 15, 20)
   
+  // Date filter states
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  
   // Lấy thông tin user hiện tại để kiểm tra quyền admin
   const currentUser = JSON.parse(localStorage.getItem("currentUser"));
   const isAdmin = currentUser?.role === "admin";
 
-  // Lấy orders với phân trang
+  // Lấy orders với phân trang và filter
   const fetchOrders = async (page = 1) => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_ENDPOINTS.orders}?page=${page}&limit=20`);
+      
+      // Build query parameters
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '20'
+      });
+      
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      
+      const res = await fetch(`${API_ENDPOINTS.orders}?${params.toString()}`);
       const data = await res.json();
       
       if (data.orders && data.pagination) {
@@ -247,12 +261,60 @@ function Bills() {
           </div>
         )}
       </div>
+
+      {/* Date Filter Section */}
+      {!selectedOrder && (
+        <div className="bg-orange-50 p-4 rounded-lg mb-4">
+          <div className="flex flex-wrap gap-4 items-end">
+            <div>
+              <label className="block text-sm font-semibold mb-1 text-orange-700">Từ ngày</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1 text-orange-700">Đến ngày</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+            </div>
+            <button
+              onClick={() => fetchOrders(1)}
+              disabled={loading}
+              className="bg-orange-500 text-white px-4 py-2 rounded shadow hover:bg-orange-600 disabled:opacity-50"
+            >
+              {loading ? "Đang tải..." : "Lọc"}
+            </button>
+            <button
+              onClick={() => {
+                setStartDate("");
+                setEndDate("");
+                fetchOrders(1);
+              }}
+              disabled={loading}
+              className="bg-gray-500 text-white px-4 py-2 rounded shadow hover:bg-gray-600 disabled:opacity-50"
+            >
+              Xóa lọc
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* Thông báo logic hiển thị */}
       {!selectedOrder && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="text-sm text-blue-700">
-            <strong>📋 Hiển thị:</strong> Tất cả đơn hàng hôm nay + Đơn hàng chưa hoàn thành các ngày trước
+            <strong>📋 Hiển thị:</strong> {
+              startDate || endDate
+                ? `Đơn hàng từ ${startDate || 'đầu'} đến ${endDate || 'hôm nay'}`
+                : "Tất cả đơn hàng hôm nay + Đơn hàng chưa hoàn thành các ngày trước"
+            }
           </div>
         </div>
       )}

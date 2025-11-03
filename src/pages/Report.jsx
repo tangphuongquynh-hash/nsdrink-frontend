@@ -19,6 +19,11 @@ function Report() {
   });
   const [loading, setLoading] = useState(false);
   
+  // Date filter states for revenue
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [topItems, setTopItems] = useState([]);
+  
   // Selected order states (similar to Bills page)
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [paymentMethodEdit, setPaymentMethodEdit] = useState("cash");
@@ -69,7 +74,7 @@ function Report() {
     }
   };
 
-  // Fetch revenue summary
+  // Fetch revenue summary with date filter
   const fetchRevenue = async () => {
     if (!isAdmin) return;
     
@@ -79,6 +84,10 @@ function Report() {
         params.append('phone', currentUser.phone);
       }
       
+      // Add date filters
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      
       const url = `${API_ENDPOINTS.orders}/completed?${params.toString()}`;
       const res = await fetch(url);
       
@@ -87,6 +96,24 @@ function Report() {
       
       if (data.revenue) {
         setRevenue(data.revenue);
+      }
+
+      // Extract top 10 items from orders data
+      if (data.orders) {
+        const itemCount = {};
+        data.orders.forEach((order) => {
+          (order.items || []).forEach((item) => {
+            const name = item.name || "Unknown";
+            itemCount[name] = (itemCount[name] || 0) + Number(item.quantity || 0);
+          });
+        });
+
+        const sortedItems = Object.entries(itemCount)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 10)
+          .map(([name, quantity]) => ({ name, quantity }));
+        
+        setTopItems(sortedItems);
       }
     } catch (err) {
       console.error("Fetch revenue error:", err);
@@ -270,11 +297,56 @@ function Report() {
         )}
       </div>
 
+      {/* Date Filter for Revenue */}
+      {!selectedOrder && (
+        <div className="bg-orange-50 p-4 rounded-lg mb-4">
+          <div className="flex flex-wrap gap-4 items-end">
+            <div>
+              <label className="block text-sm font-semibold mb-1 text-orange-700">Từ ngày</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1 text-orange-700">Đến ngày</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-orange-300"
+              />
+            </div>
+            <button
+              onClick={() => fetchRevenue()}
+              disabled={loading}
+              className="bg-orange-500 text-white px-4 py-2 rounded shadow hover:bg-orange-600 disabled:opacity-50"
+            >
+              {loading ? "Đang tải..." : "Lọc doanh thu"}
+            </button>
+            <button
+              onClick={() => {
+                setStartDate("");
+                setEndDate("");
+                fetchRevenue();
+              }}
+              disabled={loading}
+              className="bg-gray-500 text-white px-4 py-2 rounded shadow hover:bg-gray-600 disabled:opacity-50"
+            >
+              Xóa lọc
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Info notice */}
       {!selectedOrder && (
         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
           <div className="text-sm text-yellow-700">
             <strong>📋 Hiển thị:</strong> Các đơn hàng có áp dụng giảm giá hoặc có ghi chú đặc biệt
+            {startDate || endDate ? ` (Doanh thu từ ${startDate || 'đầu'} đến ${endDate || 'hôm nay'})` : ''}
           </div>
         </div>
       )}
@@ -305,6 +377,44 @@ function Report() {
             </div>
             <div className="text-xs text-purple-500 mt-1">
               {revenue.total > 0 ? Math.round((revenue.transfer / revenue.total) * 100) : 0}% tổng doanh thu
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top 10 Most Ordered Items */}
+      {!selectedOrder && topItems.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm border border-orange-100 overflow-hidden mb-6">
+          <div className="bg-orange-50 px-4 py-3 border-b border-orange-100">
+            <h2 className="text-lg font-semibold text-orange-700">Top 10 món ăn được chọn nhiều nhất</h2>
+            {startDate || endDate ? (
+              <p className="text-sm text-orange-600 mt-1">
+                Từ {startDate || 'đầu'} đến {endDate || 'hôm nay'}
+              </p>
+            ) : (
+              <p className="text-sm text-orange-600 mt-1">Tất cả thời gian</p>
+            )}
+          </div>
+          <div className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {topItems.map((item, index) => (
+                <div key={item.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
+                      index === 0 ? 'bg-yellow-500' : 
+                      index === 1 ? 'bg-gray-400' : 
+                      index === 2 ? 'bg-orange-400' : 'bg-blue-400'
+                    }`}>
+                      {index + 1}
+                    </div>
+                    <span className="font-medium text-gray-800">{item.name}</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-bold text-orange-600">{item.quantity}</div>
+                    <div className="text-xs text-gray-500">lần chọn</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
