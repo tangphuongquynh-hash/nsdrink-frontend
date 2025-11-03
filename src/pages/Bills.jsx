@@ -216,6 +216,8 @@ function Bills() {
       paymentMethod,
       totalAmount: total,
       discount: discount,
+      items: selectedOrder.items, // Đảm bảo ghi chú trong items được lưu
+      notes: selectedOrder.notes, // Nếu có ghi chú chung cho đơn hàng
     };
 
     // Thêm thông tin user (cả admin và user thường) cho middleware
