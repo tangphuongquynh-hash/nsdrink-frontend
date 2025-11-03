@@ -359,18 +359,25 @@ function Bills() {
               <div
                 key={order._id || order.id}
                 onClick={() => handleSelectOrder(order)}
-                className="p-3 border rounded-lg hover:bg-orange-50 cursor-pointer flex justify-between items-center"
+                className="p-3 border rounded-lg hover:bg-orange-50 cursor-pointer"
               >
-                <div className="flex flex-col">
-                  <span>Bàn {order.tableNumber}</span>
-                  <span className="text-xs text-gray-500">
-                    Ngày: {new Date(order.createdAt || order.updatedAt || Date.now()).toLocaleDateString()}
-                  </span>
+                <div className="flex justify-between items-start">
+                  <div className="flex flex-col">
+                    <span className="font-medium">Bàn {order.tableNumber}</span>
+                    <div className="text-xs text-gray-500 space-y-1">
+                      <div>📅 {new Date(order.createdAt || order.updatedAt || Date.now()).toLocaleString('vi-VN')}</div>
+                      {order.user && (
+                        <div>👤 {order.user.name || order.user.phone || 'Không rõ'}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-medium">{Number(order.totalAmount || 0).toLocaleString()}₫</div>
+                    <div className={`text-xs ${(order.status || "").includes("Đã thanh toán") ? "text-green-600" : "text-red-500"}`}>
+                      {order.status || "Chưa thanh toán"}
+                    </div>
+                  </div>
                 </div>
-                <span>{Number(order.totalAmount || 0).toLocaleString()}₫</span>
-                <span className={ (order.status || "").includes("Đã thanh toán") ? "text-green-600" : "text-red-500" }>
-                  {order.status || "Chưa thanh toán"}
-                </span>
               </div>
             ))
           )}
@@ -446,9 +453,12 @@ function Bills() {
             />
           </div>
           
-          <p className="text-sm text-gray-500">
-            Ngày: {new Date(selectedOrder.createdAt || selectedOrder.updatedAt || Date.now()).toLocaleDateString()}
-          </p>
+          <div className="text-sm text-gray-500 space-y-1">
+            <p>📅 Tạo lúc: {new Date(selectedOrder.createdAt || selectedOrder.updatedAt || Date.now()).toLocaleString('vi-VN')}</p>
+            {selectedOrder.user && (
+              <p>👤 Người tạo: {selectedOrder.user.name || selectedOrder.user.phone || 'Không rõ'}</p>
+            )}
+          </div>
 
           <table className="w-full border border-orange-200 text-sm">
             <thead>

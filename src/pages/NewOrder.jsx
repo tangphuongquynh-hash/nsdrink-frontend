@@ -84,11 +84,15 @@ export default function NewOrder() {
   }
 
   async function confirmOrder() {
+    // Get current user info
+    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+    
     // build payload
     const payload = {
       orderNumber,
       tableNumber: Number(table),
       items,
+      userId: currentUser?._id || null, // Add user ID to track who created the order
     };
     setSaving(true);
     try {
