@@ -100,6 +100,12 @@ function Bills() {
   const handleChangeItem = (index, key, value) => {
     const newItems = [...(selectedOrder.items || [])];
     newItems[index] = { ...newItems[index], [key]: key === "quantity" || key === "price" ? Number(value) : value };
+    
+    // Debug: Log when notes are changed
+    if (key === "note") {
+      console.log(`📝 Note changed for item ${index} (${newItems[index].name}):`, value);
+    }
+    
     setSelectedOrder({ ...selectedOrder, items: newItems });
   };
 
@@ -224,6 +230,16 @@ function Bills() {
     if (currentUser?.phone) {
       payload.phone = currentUser.phone;
     }
+
+    // Debug: Log the payload being sent
+    console.log("🔍 Complete order payload:", {
+      id,
+      status: payload.status,
+      paymentMethod: payload.paymentMethod,
+      items: payload.items,
+      itemsWithNotes: payload.items?.filter(item => item.note && item.note.trim() !== ""),
+      notes: payload.notes
+    });
 
     try {
       const url = `${API_ENDPOINTS.orders.replace(/\/$/, "")}/${id}`;
