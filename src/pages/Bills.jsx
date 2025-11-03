@@ -243,6 +243,9 @@ function Bills() {
 
     try {
       const url = `${API_ENDPOINTS.orders.replace(/\/$/, "")}/${id}`;
+      console.log("🌐 Making request to:", url);
+      console.log("📡 Request method: PUT");
+      
       const res = await fetch(url, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -252,7 +255,14 @@ function Bills() {
       let data = null;
       try { data = await res.json(); } catch { /* ignore */ }
 
+      console.log("🔄 Server response:", {
+        status: res.status,
+        ok: res.ok,
+        data: data
+      });
+
       if (!res.ok) {
+        console.error("❌ Update failed:", data);
         throw new Error((data && (data.message || data.error)) || `Update failed (${res.status})`);
       }
 
